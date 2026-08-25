@@ -109,6 +109,8 @@ let letterChoices = []; // 現在の文字位置の4択
 let revealedAnswer = '';
 let buzzedId = null;
 let noBuzzDeadline = null; // 「誰も押さないまま自動で正解発表になる」時刻（クライアントのカウントダウン表示用）
+let questionRevealedMs = 0; // この問題文がこれまでに表示され進んだ合計時間（誤答で中断された分は除く）
+let questionTypingStartedAt = null; // 直近でopenフェーズに入った（表示が再開した）時刻
 const lockedOut = new Set(); // この問題で誤答済みのplayerId
 
 let cpuTimer = null;
@@ -131,6 +133,16 @@ const ANNOUNCE_DELAY_MS = 1500; // 「第N問」だけを表示しておく時�
 function cancelCpuTimer() { if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; } }
 function cancelCpuLetterTimer() { if (cpuLetterTimer) { clearTimeout(cpuLetterTimer); cpuLetterTimer = null; } }
 function cancelNoBuzzTimer() { if (noBuzzTimer) { clearTimeout(noBuzzTimer); noBuzzTimer = null; } noBuzzDeadline = null; }
+
+// 早押しされてopenフェーズが中断される瞬間に呼ぶ。ここまでに問題文が表示された時間を
+// questionRevealedMsに積み増しておき、後でopenに戻ったときに続きから計算できるようにする。
+function pauseQuestionTyping() {
+  if (questionTypingStartedAt !== null) {
+    const totalTypingMs = question.length * TYPEWRITER_SPEED_MS;
+    questionRevealedMs = Math.min(totalTypingMs, questionRevealedMs + (Date.now() - questionTypingStartedAt));
+    questionTypingStartedAt = null;
+  }
+}
 function cancelLetterTimer() { if (letterTimer) { clearTimeout(letterTimer); letterTimer = null; } }
 function cancelAdvanceTimer() { if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; } }
 function cancelAllTimers() {
@@ -176,13 +188,16 @@ function broadcastState() {
   }
 }
 
-// 問題文の表示（タイプライター）が終わるまでの時間 + NO_BUZZ_TIMEOUT_MS 待ってから
-// 誰も押さなければ諦めて次の問題へ。表示中はカウントダウンを出さない。
+// 問題文の表示（タイプライター）の残りが終わるまでの時間 + NO_BUZZ_TIMEOUT_MS 待ってから
+// 誰も押さなければ諦めて次の問題へ。誤答で中断されていた場合は、その時点までの
+// 表示済み時間（questionRevealedMs）を差し引いた残りだけ待つ。
 function scheduleNoBuzzTimer() {
   cancelNoBuzzTimer();
   const roundQuestion = question;
-  const typingMs = roundQuestion.length * TYPEWRITER_SPEED_MS;
-  const totalDelay = typingMs + NO_BUZZ_TIMEOUT_MS;
+  const totalTypingMs = roundQuestion.length * TYPEWRITER_SPEED_MS;
+  const remainingTypingMs = Math.max(0, totalTypingMs - questionRevealedMs);
+  questionTypingStartedAt = Date.now();
+  const totalDelay = remainingTypingMs + NO_BUZZ_TIMEOUT_MS;
   noBuzzDeadline = Date.now() + totalDelay;
   noBuzzTimer = setTimeout(() => {
     noBuzzTimer = null;
@@ -250,6 +265,7 @@ function scheduleCpuBuzzIfNeeded() {
     if (!players.has(CPU_ID) || lockedOut.has(CPU_ID)) return;
 
     cancelNoBuzzTimer();
+    pauseQuestionTyping();
     buzzedId = CPU_ID;
     resolvedCount = 0;
     isFirstLetterPick = true;
@@ -318,6 +334,8 @@ function drawAndOpenNextQuestion() {
   letterChoices = [];
   revealedAnswer = '';
   buzzedId = null;
+  questionRevealedMs = 0;
+  questionTypingStartedAt = null;
   lockedOut.clear();
   phase = 'announce';
   broadcastState();
@@ -374,6 +392,8 @@ io.on('connection', (socket) => {
     letterChoices = [];
     revealedAnswer = '';
     buzzedId = null;
+    questionRevealedMs = 0;
+    questionTypingStartedAt = null;
     lockedOut.clear();
     broadcastState();
   });
@@ -384,6 +404,7 @@ io.on('connection', (socket) => {
     if (lockedOut.has(socket.id)) return;
     cancelCpuTimer();
     cancelNoBuzzTimer();
+    pauseQuestionTyping();
     buzzedId = socket.id;
     resolvedCount = 0;
     isFirstLetterPick = true;
