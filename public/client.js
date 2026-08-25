@@ -146,17 +146,19 @@ socket.on('state', (state) => {
     revealBanner.textContent = `正解は「${revealedAnswer}」でした！`;
   }
 
-  choicesContainer.classList.toggle('hidden', phase === 'reveal' || !choices || choices.length === 0);
+  // 選択肢は早押しに勝った本人にだけ表示する
+  const showChoices = phase === 'buzzed' && isSelfBuzzed && choices && choices.length > 0;
+  choicesContainer.classList.toggle('hidden', !showChoices);
   choiceButtons.forEach((btn, i) => {
     const text = choices[i] || '';
     btn.textContent = text;
-    btn.classList.toggle('wrong-choice', wrongChoices && wrongChoices.includes(text));
-    btn.disabled = !(phase === 'buzzed' && isSelfBuzzed) || (wrongChoices && wrongChoices.includes(text));
+    const isWrong = wrongChoices && wrongChoices.includes(text);
+    btn.classList.toggle('wrong-choice', isWrong);
+    btn.disabled = isWrong;
   });
 
   if (phase === 'open') {
-    statusBanner.textContent = '押せます！';
-    statusBanner.className = 'status-banner open';
+    statusBanner.classList.add('hidden');
     buzzBtn.disabled = !me || me.locked;
   } else if (phase === 'buzzed') {
     if (isSelfBuzzed) {
