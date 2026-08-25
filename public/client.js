@@ -166,6 +166,23 @@ function updateQuestionReveal(el, text, phase) {
   }, TYPEWRITER_SPEED_MS);
 }
 
+// 問題文の表示が終わったのに誰も押さないままだと、サーバーが一定時間後に
+// 自動で正解発表へ進む。その残り秒数をここでカウントダウン表示する。
+// （表示が終わったかどうかはこのクライアント自身のタイプライター表示の完了で判断する）
+let currentPhase = null;
+let currentNoBuzzDeadline = null;
+
+function tickNoBuzzCountdown() {
+  if (currentPhase !== 'open' || !currentNoBuzzDeadline) return;
+  const isTypingDone = revealState.text !== null && revealState.index >= revealState.text.length;
+  if (!isTypingDone) return;
+  const remaining = Math.max(0, Math.ceil((currentNoBuzzDeadline - Date.now()) / 1000));
+  statusBanner.textContent = `あと${remaining}秒で自動的に正解発表します`;
+  statusBanner.className = 'status-banner countdown';
+  statusBanner.classList.remove('invisible');
+}
+setInterval(tickNoBuzzCountdown, 250);
+
 socket.on('state', (state) => {
   const {
     started,
@@ -176,10 +193,14 @@ socket.on('state', (state) => {
     answerProgress,
     letterChoices,
     revealedAnswer,
+    noBuzzDeadline,
     buzzedId,
     buzzedName,
     players,
   } = state;
+
+  currentPhase = started ? phase : null;
+  currentNoBuzzDeadline = noBuzzDeadline;
 
   renderPlayerList(playerList, players, buzzedId);
 

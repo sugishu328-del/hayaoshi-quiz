@@ -108,6 +108,7 @@ let resolvedCount = 0; // answerの先頭から何文字確定したか（スキ
 let letterChoices = []; // 現在の文字位置の4択
 let revealedAnswer = '';
 let buzzedId = null;
+let noBuzzDeadline = null; // 「誰も押さないまま自動で正解発表になる」時刻（クライアントのカウントダウン表示用）
 const lockedOut = new Set(); // この問題で誤答済みのplayerId
 
 let cpuTimer = null;
@@ -120,7 +121,8 @@ let cpuMistakeAt = -1; // 何文字目（ガード対象文字のうち何番目
 let cpuStepIndex = 0;
 let isFirstLetterPick = true; // 早押し後、最初の1文字目だけ制限時間を長くする
 
-const NO_BUZZ_TIMEOUT_MS = 20000; // 誰も押さないまま経過したら諦めて次の問題へ
+const TYPEWRITER_SPEED_MS = 140; // client.jsの問題文タイプライター表示と同じ速さ（表示完了タイミングの計算に使う）
+const NO_BUZZ_TIMEOUT_MS = 15000; // 問題文が表示され終わってから、誰も押さないまま経過したら諦めて次の問題へ
 const FIRST_LETTER_TIMEOUT_MS = 5000; // 早押し直後、1文字目だけの制限時間
 const LETTER_TIMEOUT_MS = 3000; // 2文字目以降、選ばないまま経過したら誤答扱い
 const REVEAL_DELAY_MS = 3000; // 正解発表を表示しておく時間
@@ -128,7 +130,7 @@ const ANNOUNCE_DELAY_MS = 1500; // 「第N問」だけを表示しておく時�
 
 function cancelCpuTimer() { if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; } }
 function cancelCpuLetterTimer() { if (cpuLetterTimer) { clearTimeout(cpuLetterTimer); cpuLetterTimer = null; } }
-function cancelNoBuzzTimer() { if (noBuzzTimer) { clearTimeout(noBuzzTimer); noBuzzTimer = null; } }
+function cancelNoBuzzTimer() { if (noBuzzTimer) { clearTimeout(noBuzzTimer); noBuzzTimer = null; } noBuzzDeadline = null; }
 function cancelLetterTimer() { if (letterTimer) { clearTimeout(letterTimer); letterTimer = null; } }
 function cancelAdvanceTimer() { if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; } }
 function cancelAllTimers() {
@@ -157,6 +159,7 @@ function broadcastState() {
     question,
     questionNumber,
     revealedAnswer,
+    noBuzzDeadline,
     buzzedId,
     buzzedName: buzzedId ? players.get(buzzedId)?.name : null,
     players: publicPlayers(),
@@ -173,14 +176,19 @@ function broadcastState() {
   }
 }
 
+// 問題文の表示（タイプライター）が終わるまでの時間 + NO_BUZZ_TIMEOUT_MS 待ってから
+// 誰も押さなければ諦めて次の問題へ。表示中はカウントダウンを出さない。
 function scheduleNoBuzzTimer() {
   cancelNoBuzzTimer();
   const roundQuestion = question;
+  const typingMs = roundQuestion.length * TYPEWRITER_SPEED_MS;
+  const totalDelay = typingMs + NO_BUZZ_TIMEOUT_MS;
+  noBuzzDeadline = Date.now() + totalDelay;
   noBuzzTimer = setTimeout(() => {
     noBuzzTimer = null;
     if (!started || phase !== 'open' || question !== roundQuestion) return;
     enterReveal();
-  }, NO_BUZZ_TIMEOUT_MS);
+  }, totalDelay);
 }
 
 function scheduleLetterTimeout(timeoutMs) {
@@ -279,9 +287,9 @@ function resolveWrong() {
     enterReveal();
   } else {
     phase = 'open';
+    scheduleNoBuzzTimer();
     broadcastState();
     scheduleCpuBuzzIfNeeded();
-    scheduleNoBuzzTimer();
   }
 }
 
@@ -317,9 +325,9 @@ function drawAndOpenNextQuestion() {
     advanceTimer = null;
     if (!started) return;
     phase = 'open';
+    scheduleNoBuzzTimer();
     broadcastState();
     scheduleCpuBuzzIfNeeded();
-    scheduleNoBuzzTimer();
   }, ANNOUNCE_DELAY_MS);
 }
 
@@ -414,9 +422,9 @@ io.on('connection', (socket) => {
         enterReveal();
       } else {
         phase = 'open';
+        scheduleNoBuzzTimer();
         broadcastState();
         scheduleCpuBuzzIfNeeded();
-        scheduleNoBuzzTimer();
       }
     } else if (phase === 'open' && players.size > 0 && lockedOut.size >= players.size) {
       enterReveal();

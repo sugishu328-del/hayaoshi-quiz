@@ -303,6 +303,11 @@ button:disabled {
   color: #8a6d1f;
 }
 
+.status-banner.countdown {
+  background: #eceef4;
+  color: #555a6e;
+}
+
 .answer-progress-panel {
   flex: 0 0 auto;
   width: 100%;
