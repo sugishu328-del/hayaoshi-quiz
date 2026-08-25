@@ -52,6 +52,21 @@ const resetBtn = document.getElementById('reset-btn');
 const hostPlayerList = document.getElementById('host-player-list');
 
 const questionInput = document.getElementById('question-input');
+const autoModeHint = document.getElementById('auto-mode-hint');
+const hostAnswerDisplay = document.getElementById('host-answer-display');
+const modeButtons = document.querySelectorAll('.mode-btn');
+
+modeButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    socket.emit('host:setMode', { mode: btn.dataset.mode });
+  });
+});
+
+function applyMode(mode) {
+  modeButtons.forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+  questionInput.classList.toggle('hidden', mode === 'auto');
+  autoModeHint.classList.toggle('hidden', mode !== 'auto');
+}
 
 openBtn.addEventListener('click', () => {
   socket.emit('host:open', { question: questionInput.value.trim() });
@@ -83,7 +98,7 @@ function renderQuestion(el, question) {
 }
 
 socket.on('state', (state) => {
-  const { phase, players, buzzedId, buzzedName, question } = state;
+  const { phase, players, buzzedId, buzzedName, question, mode, answer } = state;
 
   // プレイヤー画面
   renderQuestion(questionDisplay, question);
@@ -105,7 +120,10 @@ socket.on('state', (state) => {
   }
 
   // 出題者画面
+  applyMode(mode);
+  modeButtons.forEach((b) => (b.disabled = phase !== 'idle'));
   renderQuestion(hostQuestionDisplay, question);
+  renderQuestion(hostAnswerDisplay, answer ? `正解: ${answer}` : '');
   renderPlayerList(hostPlayerList, players, buzzedId);
   if (phase === 'idle') {
     hostStatus.textContent = '待機中';

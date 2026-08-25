@@ -92,6 +92,48 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.mode-select {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid #3a3f55;
+  background: transparent;
+  color: #aab;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.mode-btn.active {
+  border-color: #5b8cff;
+  background: #5b8cff22;
+  color: #fff;
+}
+
+.auto-mode-hint {
+  width: 100%;
+  color: #9aa;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
+.answer-display {
+  width: 100%;
+  background: #2a2410;
+  border: 2px solid #d4af37;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.95rem;
+  color: #ffd97a;
+}
+
 .question-display {
   width: 100%;
   background: #1c1f2b;

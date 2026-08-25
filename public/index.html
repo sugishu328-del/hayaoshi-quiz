@@ -30,8 +30,14 @@
 
 <div id="host-screen" class="screen hidden">
   <h1>出題者パネル</h1>
+  <div class="mode-select">
+    <button id="mode-manual" class="mode-btn active" data-mode="manual">手動入力</button>
+    <button id="mode-auto" class="mode-btn" data-mode="auto">自動出題</button>
+  </div>
   <textarea id="question-input" class="question-input" placeholder="問題文を入力…" maxlength="300" rows="3"></textarea>
+  <div id="auto-mode-hint" class="auto-mode-hint hidden">「問題を出す」を押すとファイルからランダムに出題します（全問出題し終えたら1周してリセットされます）</div>
   <div id="host-question-display" class="question-display hidden"></div>
+  <div id="host-answer-display" class="answer-display hidden"></div>
   <div id="host-status" class="status-banner idle">待機中</div>
   <div class="host-controls">
     <button id="open-btn">問題を出す</button>
