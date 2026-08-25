@@ -46,28 +46,6 @@ h2 {
   gap: 12px;
 }
 
-.role-select {
-  display: flex;
-  gap: 8px;
-}
-
-.role-btn {
-  flex: 1;
-  padding: 10px;
-  border-radius: 10px;
-  border: 2px solid #3a3f55;
-  background: transparent;
-  color: #aab;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.role-btn.active {
-  border-color: #5b8cff;
-  background: #5b8cff22;
-  color: #fff;
-}
-
 input[type="text"] {
   padding: 12px;
   border-radius: 10px;
@@ -92,84 +70,20 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.mode-select {
-  width: 100%;
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 10px;
-  border-radius: 10px;
-  border: 2px solid #3a3f55;
-  background: transparent;
-  color: #aab;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.mode-btn.active {
-  border-color: #5b8cff;
-  background: #5b8cff22;
-  color: #fff;
-}
-
-.auto-mode-hint {
-  width: 100%;
-  color: #9aa;
-  font-size: 0.85rem;
-  margin-bottom: 12px;
-}
-
-.cpu-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.95rem;
-  margin-bottom: 4px;
-  cursor: pointer;
-}
-
-.cpu-toggle input {
-  width: 18px;
-  height: 18px;
-}
-
-.cpu-hint {
-  width: 100%;
-  color: #9aa;
-  font-size: 0.8rem;
-  margin-bottom: 12px;
-}
-
-.answer-display {
-  width: 100%;
-  background: #2a2410;
-  border: 2px solid #d4af37;
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  font-size: 0.95rem;
-  color: #ffd97a;
-}
-
-.difficulty-select {
+.setup-panel {
   width: 100%;
   background: #1c1f2b;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 16px;
+  padding: 20px;
   margin-bottom: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
-.difficulty-select-label {
+.setup-label {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: #ccd;
 }
 
@@ -195,7 +109,21 @@ button:disabled {
   color: #fff;
 }
 
-.auto-session-info {
+.cpu-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.cpu-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.session-info {
   width: 100%;
   display: flex;
   align-items: center;
@@ -204,12 +132,12 @@ button:disabled {
   background: #1c1f2b;
   border-radius: 10px;
   padding: 10px 14px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   font-size: 0.85rem;
   color: #ccd;
 }
 
-#change-difficulty-btn {
+#end-game-btn {
   padding: 8px 12px;
   font-size: 0.8rem;
   background: #3a3f55;
@@ -243,17 +171,17 @@ button:disabled {
   50% { opacity: 0; }
 }
 
-.question-input {
+.reveal-banner {
   width: 100%;
-  padding: 12px;
-  border-radius: 10px;
-  border: 2px solid #3a3f55;
-  background: #12141c;
-  color: #fff;
-  font-size: 1rem;
-  font-family: inherit;
-  resize: vertical;
-  margin-bottom: 12px;
+  text-align: center;
+  background: #2a2410;
+  border: 2px solid #d4af37;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: #ffd97a;
 }
 
 .status-banner {
@@ -289,6 +217,7 @@ button:disabled {
   font-weight: bold;
   box-shadow: 0 8px 0 #a30000;
   transition: transform 0.05s;
+  margin-bottom: 20px;
 }
 
 .buzz-btn:active:not(:disabled) {
@@ -301,24 +230,30 @@ button:disabled {
   box-shadow: 0 8px 0 #22252f;
 }
 
-.host-controls {
+.choices {
   width: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
-#open-btn,
-#reset-btn {
-  grid-column: span 2;
+.choice-btn {
+  background: #2b3350;
+  text-align: left;
+  font-size: 0.95rem;
+  line-height: 1.3;
+  min-height: 56px;
 }
 
-#correct-btn {
-  background: #2e9e5b;
+.choice-btn:disabled {
+  opacity: 0.5;
 }
 
-#wrong-btn {
-  background: #c94b4b;
+.choice-btn.wrong-choice {
+  background: #3a1f1f;
+  color: #c98;
+  text-decoration: line-through;
+  opacity: 0.6;
 }
 
 .player-list {

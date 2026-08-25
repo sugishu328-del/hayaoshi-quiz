@@ -1,111 +1,62 @@
 const socket = io();
 
 const joinScreen = document.getElementById('join-screen');
-const playerScreen = document.getElementById('player-screen');
-const hostScreen = document.getElementById('host-screen');
-
-const roleButtons = document.querySelectorAll('.role-btn');
+const gameScreen = document.getElementById('game-screen');
 const nameInput = document.getElementById('name-input');
 const joinBtn = document.getElementById('join-btn');
 
-let selectedRole = 'player';
-
-roleButtons.forEach((btn) => {
-  btn.addEventListener('click', () => {
-    roleButtons.forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    selectedRole = btn.dataset.role;
-    nameInput.classList.toggle('hidden', selectedRole === 'host');
-  });
-});
-
 joinBtn.addEventListener('click', () => {
   const name = nameInput.value.trim();
-  if (selectedRole === 'player' && !name) {
+  if (!name) {
     nameInput.focus();
     return;
   }
-  socket.emit('join', { name, role: selectedRole });
+  socket.emit('join', { name });
   joinScreen.classList.add('hidden');
-  if (selectedRole === 'host') {
-    hostScreen.classList.remove('hidden');
-  } else {
-    playerScreen.classList.remove('hidden');
-  }
+  gameScreen.classList.remove('hidden');
 });
 
-// ---- プレイヤー画面 ----
+// ---- セットアップパネル（誰でも操作可） ----
+const setupPanel = document.getElementById('setup-panel');
+const playPanel = document.getElementById('play-panel');
+const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+const cpuToggle = document.getElementById('cpu-toggle-checkbox');
+const startGameBtn = document.getElementById('start-game-btn');
+const endGameBtn = document.getElementById('end-game-btn');
+const activeDifficultyLabel = document.getElementById('active-difficulty-label');
+
+difficultyButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    socket.emit('game:setDifficulty', { difficulty: btn.dataset.difficulty });
+  });
+});
+
+cpuToggle.addEventListener('change', () => {
+  socket.emit('game:setCpu', { enabled: cpuToggle.checked });
+});
+
+startGameBtn.addEventListener('click', () => socket.emit('game:start'));
+endGameBtn.addEventListener('click', () => socket.emit('game:end'));
+
+// ---- プレイ画面 ----
 const statusBanner = document.getElementById('status-banner');
 const buzzBtn = document.getElementById('buzz-btn');
 const playerList = document.getElementById('player-list');
+const questionDisplay = document.getElementById('question-display');
+const revealBanner = document.getElementById('reveal-banner');
+const choicesContainer = document.getElementById('choices');
+const choiceButtons = document.querySelectorAll('.choice-btn');
 
 buzzBtn.addEventListener('click', () => {
   socket.emit('player:buzz');
 });
 
-// ---- 出題者画面 ----
-const hostStatus = document.getElementById('host-status');
-const openBtn = document.getElementById('open-btn');
-const correctBtn = document.getElementById('correct-btn');
-const wrongBtn = document.getElementById('wrong-btn');
-const resetBtn = document.getElementById('reset-btn');
-const hostPlayerList = document.getElementById('host-player-list');
-
-const questionInput = document.getElementById('question-input');
-const autoModeHint = document.getElementById('auto-mode-hint');
-const hostAnswerDisplay = document.getElementById('host-answer-display');
-const hostControls = document.getElementById('host-controls');
-const modeButtons = document.querySelectorAll('.mode-btn');
-
-const difficultySelect = document.getElementById('difficulty-select');
-const difficultyButtons = document.querySelectorAll('.difficulty-btn');
-const startAutoBtn = document.getElementById('start-auto-btn');
-const autoSessionInfo = document.getElementById('auto-session-info');
-const currentDifficultyLabel = document.getElementById('current-difficulty-label');
-const changeDifficultyBtn = document.getElementById('change-difficulty-btn');
-
-modeButtons.forEach((btn) => {
+choiceButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
-    socket.emit('host:setMode', { mode: btn.dataset.mode });
+    if (btn.disabled) return;
+    socket.emit('player:answer', { choice: btn.textContent });
   });
 });
-
-difficultyButtons.forEach((btn) => {
-  btn.addEventListener('click', () => {
-    socket.emit('host:setDifficulty', { difficulty: btn.dataset.difficulty });
-  });
-});
-
-startAutoBtn.addEventListener('click', () => socket.emit('host:startAuto'));
-changeDifficultyBtn.addEventListener('click', () => socket.emit('host:changeDifficulty'));
-
-const cpuToggle = document.getElementById('cpu-toggle-checkbox');
-cpuToggle.addEventListener('change', () => {
-  socket.emit('host:setCpu', { enabled: cpuToggle.checked });
-});
-
-function applyHostPanel(mode, difficulty, autoStarted) {
-  modeButtons.forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
-
-  const showDifficultySelect = mode === 'auto' && !autoStarted;
-  const showAutoControls = mode === 'auto' && autoStarted;
-
-  difficultySelect.classList.toggle('hidden', !showDifficultySelect);
-  autoSessionInfo.classList.toggle('hidden', !showAutoControls);
-  hostControls.classList.toggle('hidden', showDifficultySelect);
-  questionInput.classList.toggle('hidden', mode !== 'manual');
-  autoModeHint.classList.toggle('hidden', !showAutoControls);
-
-  difficultyButtons.forEach((b) => b.classList.toggle('active', b.dataset.difficulty === difficulty));
-  currentDifficultyLabel.textContent = difficulty;
-}
-
-openBtn.addEventListener('click', () => {
-  socket.emit('host:open', { question: questionInput.value.trim() });
-});
-correctBtn.addEventListener('click', () => socket.emit('host:correct'));
-wrongBtn.addEventListener('click', () => socket.emit('host:wrong'));
-resetBtn.addEventListener('click', () => socket.emit('host:reset'));
 
 function renderPlayerList(container, players, buzzedId) {
   container.innerHTML = '';
@@ -121,26 +72,17 @@ function renderPlayerList(container, players, buzzedId) {
     });
 }
 
-const questionDisplay = document.getElementById('question-display');
-const hostQuestionDisplay = document.getElementById('host-question-display');
-
 const TYPEWRITER_SPEED_MS = 70;
+const revealState = { text: null, index: 0, timer: null };
 
-function createRevealState() {
-  return { text: null, index: 0, timer: null };
-}
-
-const playerReveal = createRevealState();
-const hostReveal = createRevealState();
-
-// 早押しクイズなので問題文を1文字ずつ表示する。同じ問題文が続く間はアニメーションを再開しない。
-// buzzed中は読み上げが止まっている想定で表示も止め、openに戻ったら続きから再開する。
-function updateQuestionReveal(state, el, text, phase) {
-  if (text !== state.text) {
-    if (state.timer) clearInterval(state.timer);
-    state.timer = null;
-    state.text = text;
-    state.index = 0;
+// 早押しクイズなので問題文を1文字ずつ表示する。誰かが押している間は表示を止め、
+// 誤答でopenに戻ったら続きから再開する。
+function updateQuestionReveal(el, text, phase) {
+  if (text !== revealState.text) {
+    if (revealState.timer) clearInterval(revealState.timer);
+    revealState.timer = null;
+    revealState.text = text;
+    revealState.index = 0;
     el.textContent = '';
     el.classList.toggle('hidden', !text);
     el.classList.remove('revealing');
@@ -148,84 +90,85 @@ function updateQuestionReveal(state, el, text, phase) {
   }
 
   if (phase !== 'open') {
-    if (state.timer) {
-      clearInterval(state.timer);
-      state.timer = null;
+    if (revealState.timer) {
+      clearInterval(revealState.timer);
+      revealState.timer = null;
       el.classList.remove('revealing');
     }
     return;
   }
 
-  if (state.index >= state.text.length || state.timer) return;
+  if (revealState.index >= revealState.text.length || revealState.timer) return;
 
   el.classList.add('revealing');
-  state.timer = setInterval(() => {
-    state.index++;
-    el.textContent = state.text.slice(0, state.index);
-    if (state.index >= state.text.length) {
-      clearInterval(state.timer);
-      state.timer = null;
+  revealState.timer = setInterval(() => {
+    revealState.index++;
+    el.textContent = revealState.text.slice(0, revealState.index);
+    if (revealState.index >= revealState.text.length) {
+      clearInterval(revealState.timer);
+      revealState.timer = null;
       el.classList.remove('revealing');
     }
   }, TYPEWRITER_SPEED_MS);
 }
 
-function renderInstant(el, text) {
-  el.textContent = text || '';
-  el.classList.toggle('hidden', !text);
-}
-
 socket.on('state', (state) => {
-  const { phase, players, buzzedId, buzzedName, question, mode, answer, difficulty, autoStarted } = state;
+  const {
+    started,
+    difficulty,
+    phase,
+    question,
+    choices,
+    wrongChoices,
+    revealedAnswer,
+    buzzedId,
+    buzzedName,
+    players,
+  } = state;
 
-  // プレイヤー画面
-  updateQuestionReveal(playerReveal, questionDisplay, question, phase);
   renderPlayerList(playerList, players, buzzedId);
+
+  setupPanel.classList.toggle('hidden', started);
+  playPanel.classList.toggle('hidden', !started);
+  difficultyButtons.forEach((b) => b.classList.toggle('active', b.dataset.difficulty === difficulty));
+  cpuToggle.checked = players.some((p) => p.id === 'cpu');
+  activeDifficultyLabel.textContent = difficulty;
+
+  if (!started) return;
+
+  updateQuestionReveal(questionDisplay, question, phase);
+
+  const me = players.find((p) => p.id === socket.id);
   const isSelfBuzzed = buzzedId === socket.id;
-  if (phase === 'idle') {
-    statusBanner.textContent = '出題を待っています…';
-    statusBanner.className = 'status-banner idle';
-    buzzBtn.disabled = true;
-  } else if (phase === 'open') {
-    statusBanner.textContent = '押せます！';
-    statusBanner.className = 'status-banner open';
-    const me = players.find((p) => p.id === socket.id);
-    buzzBtn.disabled = !me || me.locked;
-  } else if (phase === 'buzzed') {
-    statusBanner.textContent = isSelfBuzzed ? 'あなたが押しました！' : `${buzzedName} が押しました`;
-    statusBanner.className = 'status-banner buzzed';
-    buzzBtn.disabled = true;
+
+  revealBanner.classList.toggle('hidden', phase !== 'reveal');
+  if (phase === 'reveal') {
+    revealBanner.textContent = `正解は「${revealedAnswer}」でした！`;
   }
 
-  // 出題者画面
-  applyHostPanel(mode, difficulty, autoStarted);
-  modeButtons.forEach((b) => (b.disabled = phase !== 'idle'));
-  cpuToggle.checked = players.some((p) => p.id === 'cpu');
-  cpuToggle.disabled = phase !== 'idle';
-  updateQuestionReveal(hostReveal, hostQuestionDisplay, question, phase);
-  renderInstant(hostAnswerDisplay, answer ? `正解: ${answer}` : '');
-  renderPlayerList(hostPlayerList, players, buzzedId);
-  if (phase === 'idle') {
-    hostStatus.textContent = '待機中';
-    hostStatus.className = 'status-banner idle';
-    correctBtn.disabled = true;
-    wrongBtn.disabled = true;
-    if (!question) questionInput.value = '';
-  } else if (phase === 'open') {
-    hostStatus.textContent = '受付中…';
-    hostStatus.className = 'status-banner open';
-    correctBtn.disabled = true;
-    wrongBtn.disabled = true;
+  choicesContainer.classList.toggle('hidden', phase === 'reveal' || !choices || choices.length === 0);
+  choiceButtons.forEach((btn, i) => {
+    const text = choices[i] || '';
+    btn.textContent = text;
+    btn.classList.toggle('wrong-choice', wrongChoices && wrongChoices.includes(text));
+    btn.disabled = !(phase === 'buzzed' && isSelfBuzzed) || (wrongChoices && wrongChoices.includes(text));
+  });
+
+  if (phase === 'open') {
+    statusBanner.textContent = '押せます！';
+    statusBanner.className = 'status-banner open';
+    buzzBtn.disabled = !me || me.locked;
   } else if (phase === 'buzzed') {
-    hostStatus.className = 'status-banner buzzed';
-    if (buzzedId === 'cpu') {
-      hostStatus.textContent = 'CPUが回答中…（自動判定）';
-      correctBtn.disabled = true;
-      wrongBtn.disabled = true;
+    if (isSelfBuzzed) {
+      statusBanner.textContent = 'あなたが押しました！選択肢から答えを選んでください';
     } else {
-      hostStatus.textContent = `${buzzedName} が回答権を獲得！`;
-      correctBtn.disabled = false;
-      wrongBtn.disabled = false;
+      statusBanner.textContent = `${buzzedName} が回答中…`;
     }
+    statusBanner.className = 'status-banner buzzed';
+    buzzBtn.disabled = true;
+  } else if (phase === 'reveal') {
+    statusBanner.textContent = '正解発表';
+    statusBanner.className = 'status-banner idle';
+    buzzBtn.disabled = true;
   }
 });
