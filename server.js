@@ -102,6 +102,7 @@ let started = false;
 let difficulty = 'A';
 let phase = 'open'; // open | buzzed | reveal（started=falseの間は未使用）
 let question = '';
+let questionNumber = 0; // 何問目か（game:startで1から始まる）
 let answer = ''; // サーバー内部のみで保持し、reveal時にrevealedAnswerとして公開する
 let resolvedCount = 0; // answerの先頭から何文字確定したか（スキップ文字も含む）
 let letterChoices = []; // 現在の文字位置の4択
@@ -153,6 +154,7 @@ function broadcastState() {
     difficulty,
     phase,
     question,
+    questionNumber,
     revealedAnswer,
     buzzedId,
     buzzedName: buzzedId ? players.get(buzzedId)?.name : null,
@@ -301,6 +303,7 @@ function drawAndOpenNextQuestion() {
   cancelAllTimers();
   const picked = drawNextQuestion(difficulty);
   question = picked ? picked.question : '';
+  questionNumber++;
   answer = picked ? picked.answer : '';
   resolvedCount = 0;
   letterChoices = [];
@@ -350,6 +353,7 @@ io.on('connection', (socket) => {
     started = false;
     phase = 'open';
     question = '';
+    questionNumber = 0;
     answer = '';
     resolvedCount = 0;
     letterChoices = [];

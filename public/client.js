@@ -43,6 +43,7 @@ endGameBtn.addEventListener('click', () => socket.emit('game:end'));
 const statusBanner = document.getElementById('status-banner');
 const buzzBtn = document.getElementById('buzz-btn');
 const playerList = document.getElementById('player-list');
+const questionNumberEl = document.getElementById('question-number');
 const questionDisplay = document.getElementById('question-display');
 const revealBanner = document.getElementById('reveal-banner');
 const choicesContainer = document.getElementById('choices');
@@ -168,6 +169,7 @@ socket.on('state', (state) => {
     difficulty,
     phase,
     question,
+    questionNumber,
     answerProgress,
     letterChoices,
     revealedAnswer,
@@ -186,6 +188,9 @@ socket.on('state', (state) => {
   activeDifficultyLabel.textContent = difficulty;
 
   if (!started) return;
+
+  questionNumberEl.textContent = `第${questionNumber}問`;
+  questionNumberEl.classList.toggle('hidden', !questionNumber);
 
   updateQuestionReveal(questionDisplay, question, phase);
 
