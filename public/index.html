@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>早押しクイズ</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="join-screen" class="screen">
+  <h1>早押しクイズ</h1>
+  <div class="card">
+    <div class="role-select">
+      <button id="role-player" class="role-btn active" data-role="player">プレイヤーとして参加</button>
+      <button id="role-host" class="role-btn" data-role="host">出題者として参加</button>
+    </div>
+    <input id="name-input" type="text" placeholder="なまえを入力" maxlength="20" />
+    <button id="join-btn">参加する</button>
+  </div>
+</div>
+
+<div id="player-screen" class="screen hidden">
+  <div id="status-banner" class="status-banner idle">出題を待っています…</div>
+  <button id="buzz-btn" class="buzz-btn" disabled>押す！</button>
+  <h2>プレイヤー一覧</h2>
+  <ul id="player-list" class="player-list"></ul>
+</div>
+
+<div id="host-screen" class="screen hidden">
+  <h1>出題者パネル</h1>
+  <div id="host-status" class="status-banner idle">待機中</div>
+  <div class="host-controls">
+    <button id="open-btn">早押し受付開始</button>
+    <button id="correct-btn" disabled>正解</button>
+    <button id="wrong-btn" disabled>不正解</button>
+    <button id="reset-btn">リセット</button>
+  </div>
+  <h2>プレイヤー一覧</h2>
+  <ul id="host-player-list" class="player-list"></ul>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="client.js"></script>
+</body>
+</html>

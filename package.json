@@ -1,0 +1,13 @@
+{
+  "name": "hayaoshi-quiz",
+  "version": "1.0.0",
+  "description": "複数端末でオンライン対戦できる早押しクイズアプリ",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
