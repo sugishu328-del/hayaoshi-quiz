@@ -100,7 +100,7 @@ const CPU_ACCURACY = { A: 0.3, B: 0.6, C: 0.9 }; // A=むずかしい, C=かん�
 const players = new Map(); // socketId -> { name, score }
 let started = false;
 let difficulty = 'A';
-let phase = 'open'; // open | buzzed | reveal（started=falseの間は未使用）
+let phase = 'open'; // announce | open | buzzed | reveal（started=falseの間は未使用）
 let question = '';
 let questionNumber = 0; // 何問目か（game:startで1から始まる）
 let answer = ''; // サーバー内部のみで保持し、reveal時にrevealedAnswerとして公開する
@@ -124,6 +124,7 @@ const NO_BUZZ_TIMEOUT_MS = 20000; // 誰も押さないまま経過したら諦�
 const FIRST_LETTER_TIMEOUT_MS = 5000; // 早押し直後、1文字目だけの制限時間
 const LETTER_TIMEOUT_MS = 3000; // 2文字目以降、選ばないまま経過したら誤答扱い
 const REVEAL_DELAY_MS = 3000; // 正解発表を表示しておく時間
+const ANNOUNCE_DELAY_MS = 1500; // 「第N問」だけを表示しておく時間
 
 function cancelCpuTimer() { if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; } }
 function cancelCpuLetterTimer() { if (cpuLetterTimer) { clearTimeout(cpuLetterTimer); cpuLetterTimer = null; } }
@@ -310,10 +311,16 @@ function drawAndOpenNextQuestion() {
   revealedAnswer = '';
   buzzedId = null;
   lockedOut.clear();
-  phase = 'open';
+  phase = 'announce';
   broadcastState();
-  scheduleCpuBuzzIfNeeded();
-  scheduleNoBuzzTimer();
+  advanceTimer = setTimeout(() => {
+    advanceTimer = null;
+    if (!started) return;
+    phase = 'open';
+    broadcastState();
+    scheduleCpuBuzzIfNeeded();
+    scheduleNoBuzzTimer();
+  }, ANNOUNCE_DELAY_MS);
 }
 
 io.on('connection', (socket) => {

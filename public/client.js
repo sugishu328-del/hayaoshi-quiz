@@ -189,10 +189,15 @@ socket.on('state', (state) => {
 
   if (!started) return;
 
+  // 正解発表の後、次の問題文が出る前に「第N問」だけを一瞬表示する。
   questionNumberEl.textContent = `第${questionNumber}問`;
-  questionNumberEl.classList.toggle('hidden', !questionNumber);
+  questionNumberEl.classList.toggle('hidden', phase !== 'announce');
 
-  updateQuestionReveal(questionDisplay, question, phase);
+  if (phase === 'announce') {
+    questionDisplay.classList.add('hidden');
+  } else {
+    updateQuestionReveal(questionDisplay, question, phase);
+  }
 
   const me = players.find((p) => p.id === socket.id);
   const isSelfBuzzed = buzzedId === socket.id;
@@ -215,7 +220,10 @@ socket.on('state', (state) => {
     btn.disabled = false;
   });
 
-  if (phase === 'open') {
+  if (phase === 'announce') {
+    statusBanner.classList.add('hidden');
+    buzzBtn.disabled = true;
+  } else if (phase === 'open') {
     statusBanner.classList.add('hidden');
     buzzBtn.disabled = !me || me.locked;
   } else if (phase === 'buzzed') {
