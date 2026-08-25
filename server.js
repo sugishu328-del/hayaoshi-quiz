@@ -14,6 +14,7 @@ const players = new Map(); // socketId -> { name, score }
 let hostId = null;
 let phase = 'idle'; // idle | open | buzzed
 let buzzedId = null;
+let question = '';
 const lockedOut = new Set(); // このお題で誤答済みのplayerId
 
 function publicPlayers() {
@@ -32,6 +33,7 @@ function broadcastState() {
     buzzedId,
     buzzedName: buzzedId ? players.get(buzzedId)?.name : null,
     hasHost: hostId !== null,
+    question,
   });
 }
 
@@ -48,8 +50,9 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
-  socket.on('host:open', () => {
+  socket.on('host:open', ({ question: q } = {}) => {
     if (socket.id !== hostId) return;
+    question = (q || '').toString().trim().slice(0, 300);
     phase = 'open';
     buzzedId = null;
     broadcastState();
@@ -59,6 +62,7 @@ io.on('connection', (socket) => {
     if (socket.id !== hostId) return;
     phase = 'idle';
     buzzedId = null;
+    question = '';
     lockedOut.clear();
     broadcastState();
   });
@@ -69,6 +73,7 @@ io.on('connection', (socket) => {
     if (p) p.score += 1;
     phase = 'idle';
     buzzedId = null;
+    question = '';
     lockedOut.clear();
     broadcastState();
   });

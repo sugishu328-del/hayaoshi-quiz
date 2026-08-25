@@ -21,6 +21,7 @@
 </div>
 
 <div id="player-screen" class="screen hidden">
+  <div id="question-display" class="question-display hidden"></div>
   <div id="status-banner" class="status-banner idle">出題を待っています…</div>
   <button id="buzz-btn" class="buzz-btn" disabled>押す！</button>
   <h2>プレイヤー一覧</h2>
@@ -29,9 +30,11 @@
 
 <div id="host-screen" class="screen hidden">
   <h1>出題者パネル</h1>
+  <textarea id="question-input" class="question-input" placeholder="問題文を入力…" maxlength="300" rows="3"></textarea>
+  <div id="host-question-display" class="question-display hidden"></div>
   <div id="host-status" class="status-banner idle">待機中</div>
   <div class="host-controls">
-    <button id="open-btn">早押し受付開始</button>
+    <button id="open-btn">問題を出す</button>
     <button id="correct-btn" disabled>正解</button>
     <button id="wrong-btn" disabled>不正解</button>
     <button id="reset-btn">リセット</button>

@@ -92,6 +92,31 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.question-display {
+  width: 100%;
+  background: #1c1f2b;
+  border: 2px solid #5b8cff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.question-input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 2px solid #3a3f55;
+  background: #12141c;
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
 .status-banner {
   width: 100%;
   text-align: center;
