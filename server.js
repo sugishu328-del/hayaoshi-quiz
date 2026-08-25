@@ -48,21 +48,48 @@ function shuffleArray(arr) {
   return a;
 }
 
-// 4択を作る。問題ごとに用意した誤答しやすい選択肢（distractors）があれば優先して使い、
-// 無ければ同じ難易度バンクの他の答えからランダムに3つ選んで補う。
-function buildChoices(bank, item) {
-  const correctAnswer = item.answer;
-  if (Array.isArray(item.distractors) && item.distractors.length >= 3) {
-    return shuffleArray([correctAnswer, ...shuffleArray(item.distractors).slice(0, 3)]);
+// ---- 1文字ずつ選ばせる方式のための文字プール ----
+// 「・」は選ばせず自動でスキップする。数字/ローマ字/かな漢字でダミー文字の種類を揃える。
+const SKIP_CHARS = new Set(['・']);
+
+function classifyChar(ch) {
+  if (/[0-9]/.test(ch)) return 'digit';
+  if (/[A-Za-z]/.test(ch)) return 'latin';
+  return 'kana';
+}
+
+const charPools = { digit: [], latin: [], kana: [] };
+
+function buildCharPools() {
+  const seen = { digit: new Set(), latin: new Set(), kana: new Set() };
+  for (const d of DIFFICULTIES) {
+    for (const item of questionBanks[d]) {
+      for (const ch of item.answer) {
+        if (SKIP_CHARS.has(ch)) continue;
+        seen[classifyChar(ch)].add(ch);
+      }
+    }
   }
-  const pool = bank.map((q) => q.answer).filter((a) => a !== correctAnswer);
+  charPools.digit = seen.digit.size >= 4 ? [...seen.digit] : '0123456789'.split('');
+  charPools.latin = seen.latin.size >= 4 ? [...seen.latin] : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  charPools.kana = [...seen.kana];
+}
+buildCharPools();
+
+function buildLetterChoices(correctChar) {
+  const cls = classifyChar(correctChar);
+  const pool = charPools[cls].filter((c) => c !== correctChar);
   const shuffledPool = shuffleArray(pool);
-  const distractors = [];
-  for (const a of shuffledPool) {
-    if (distractors.length >= 3) break;
-    if (!distractors.includes(a)) distractors.push(a);
+  const decoys = [];
+  for (const c of shuffledPool) {
+    if (decoys.length >= 3) break;
+    if (!decoys.includes(c)) decoys.push(c);
   }
-  return shuffleArray([correctAnswer, ...distractors]);
+  return shuffleArray([correctChar, ...decoys]);
+}
+
+function countGuessableChars(str) {
+  return [...str].filter((ch) => !SKIP_CHARS.has(ch)).length;
 }
 
 // ---- CPU対戦相手（参加は任意、正答率は難易度に応じる） ----
@@ -76,29 +103,35 @@ let difficulty = 'A';
 let phase = 'open'; // open | buzzed | reveal（started=falseの間は未使用）
 let question = '';
 let answer = ''; // サーバー内部のみで保持し、reveal時にrevealedAnswerとして公開する
-let choices = [];
-let wrongChoices = [];
+let resolvedCount = 0; // answerの先頭から何文字確定したか（スキップ文字も含む）
+let letterChoices = []; // 現在の文字位置の4択
 let revealedAnswer = '';
 let buzzedId = null;
 const lockedOut = new Set(); // この問題で誤答済みのplayerId
 
 let cpuTimer = null;
+let cpuLetterTimer = null;
 let noBuzzTimer = null;
-let answerTimer = null;
+let letterTimer = null;
 let advanceTimer = null;
+let cpuWillSucceed = true;
+let cpuMistakeAt = -1; // 何文字目（ガード対象文字のうち何番目）でわざと間違えるか
+let cpuStepIndex = 0;
 
 const NO_BUZZ_TIMEOUT_MS = 20000; // 誰も押さないまま経過したら諦めて次の問題へ
-const ANSWER_TIMEOUT_MS = 12000; // 回答権を得た人が選ばないまま経過したら誤答扱い
+const LETTER_TIMEOUT_MS = 3000; // 1文字ごとに選ばないまま経過したら誤答扱い
 const REVEAL_DELAY_MS = 3000; // 正解発表を表示しておく時間
 
 function cancelCpuTimer() { if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; } }
+function cancelCpuLetterTimer() { if (cpuLetterTimer) { clearTimeout(cpuLetterTimer); cpuLetterTimer = null; } }
 function cancelNoBuzzTimer() { if (noBuzzTimer) { clearTimeout(noBuzzTimer); noBuzzTimer = null; } }
-function cancelAnswerTimer() { if (answerTimer) { clearTimeout(answerTimer); answerTimer = null; } }
+function cancelLetterTimer() { if (letterTimer) { clearTimeout(letterTimer); letterTimer = null; } }
 function cancelAdvanceTimer() { if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; } }
 function cancelAllTimers() {
   cancelCpuTimer();
+  cancelCpuLetterTimer();
   cancelNoBuzzTimer();
-  cancelAnswerTimer();
+  cancelLetterTimer();
   cancelAdvanceTimer();
 }
 
@@ -112,19 +145,27 @@ function publicPlayers() {
 }
 
 function broadcastState() {
-  io.emit('state', {
+  const isBuzzedSelf = (socketId) => buzzedId === socketId;
+  const base = {
     started,
     difficulty,
     phase,
     question,
-    choices,
-    wrongChoices,
     revealedAnswer,
     buzzedId,
     buzzedName: buzzedId ? players.get(buzzedId)?.name : null,
     players: publicPlayers(),
     questionCounts: { A: questionBanks.A.length, B: questionBanks.B.length, C: questionBanks.C.length },
-  });
+  };
+  // answerProgress（確定した文字）は全員に見せる。letterChoices（次の文字の4択）は本人にだけ送る。
+  const answerProgress = answer.slice(0, resolvedCount);
+  for (const [id, socket] of io.sockets.sockets) {
+    socket.emit('state', {
+      ...base,
+      answerProgress,
+      letterChoices: isBuzzedSelf(id) ? letterChoices : [],
+    });
+  }
 }
 
 function scheduleNoBuzzTimer() {
@@ -137,15 +178,49 @@ function scheduleNoBuzzTimer() {
   }, NO_BUZZ_TIMEOUT_MS);
 }
 
-function scheduleAnswerTimeout() {
-  cancelAnswerTimer();
+function scheduleLetterTimeout() {
+  cancelLetterTimer();
   const myBuzzedId = buzzedId;
-  const roundQuestion = question;
-  answerTimer = setTimeout(() => {
-    answerTimer = null;
-    if (!started || phase !== 'buzzed' || buzzedId !== myBuzzedId || question !== roundQuestion) return;
+  const myResolvedCount = resolvedCount;
+  letterTimer = setTimeout(() => {
+    letterTimer = null;
+    if (!started || phase !== 'buzzed' || buzzedId !== myBuzzedId || resolvedCount !== myResolvedCount) return;
     resolveWrong();
-  }, ANSWER_TIMEOUT_MS);
+  }, LETTER_TIMEOUT_MS);
+}
+
+// 現在のresolvedCountから次に選ばせる文字を用意する。スキップ文字は自動で読み飛ばし、
+// 最後まで到達したら正解確定。CPUの番なら次の一手もスケジュールする。
+function advanceLetterOrFinish() {
+  while (resolvedCount < answer.length && SKIP_CHARS.has(answer[resolvedCount])) {
+    resolvedCount++;
+  }
+  if (resolvedCount >= answer.length) {
+    finishCorrectAnswer();
+    return;
+  }
+  letterChoices = buildLetterChoices(answer[resolvedCount]);
+  broadcastState();
+  scheduleLetterTimeout();
+  if (buzzedId === CPU_ID) scheduleCpuLetterPick();
+}
+
+function finishCorrectAnswer() {
+  cancelAllTimers();
+  const p = players.get(buzzedId);
+  if (p) p.score += 1;
+  enterReveal();
+}
+
+function resolveLetterChoice(choice) {
+  cancelLetterTimer();
+  const correctChar = answer[resolvedCount];
+  if (choice === correctChar) {
+    resolvedCount++;
+    advanceLetterOrFinish();
+  } else {
+    resolveWrong();
+  }
 }
 
 function scheduleCpuBuzzIfNeeded() {
@@ -162,27 +237,37 @@ function scheduleCpuBuzzIfNeeded() {
 
     cancelNoBuzzTimer();
     buzzedId = CPU_ID;
+    resolvedCount = 0;
+    cpuStepIndex = 0;
+    cpuWillSucceed = Math.random() < (CPU_ACCURACY[difficulty] ?? 0.5);
+    const guessableCount = countGuessableChars(answer);
+    cpuMistakeAt = cpuWillSucceed ? -1 : Math.floor(Math.random() * Math.max(guessableCount, 1));
     phase = 'buzzed';
-    broadcastState();
-
-    const thinkDelay = 800 + Math.random() * 700; // 「考え中」の間
-    setTimeout(() => {
-      if (buzzedId !== CPU_ID || phase !== 'buzzed') return;
-      const correct = Math.random() < (CPU_ACCURACY[difficulty] ?? 0.5);
-      if (correct) {
-        resolveAnswer(answer);
-      } else {
-        const options = choices.filter((c) => c !== answer && !wrongChoices.includes(c));
-        const pick = options.length > 0 ? options[Math.floor(Math.random() * options.length)] : choices.find((c) => c !== answer);
-        resolveAnswer(pick);
-      }
-    }, thinkDelay);
+    advanceLetterOrFinish();
   }, reactionDelay);
 }
 
+function scheduleCpuLetterPick() {
+  cancelCpuLetterTimer();
+  const thinkDelay = 600 + Math.random() * 900;
+  cpuLetterTimer = setTimeout(() => {
+    cpuLetterTimer = null;
+    if (buzzedId !== CPU_ID || phase !== 'buzzed') return;
+    const correctChar = answer[resolvedCount];
+    const shouldFailNow = !cpuWillSucceed && cpuStepIndex === cpuMistakeAt;
+    const pick = shouldFailNow ? (letterChoices.find((c) => c !== correctChar) || letterChoices[0]) : correctChar;
+    cpuStepIndex++;
+    resolveLetterChoice(pick);
+  }, thinkDelay);
+}
+
 function resolveWrong() {
+  cancelLetterTimer();
+  cancelCpuLetterTimer();
   if (buzzedId) lockedOut.add(buzzedId);
   buzzedId = null;
+  resolvedCount = 0;
+  letterChoices = [];
   if (lockedOut.size >= players.size) {
     enterReveal();
   } else {
@@ -193,23 +278,13 @@ function resolveWrong() {
   }
 }
 
-function resolveAnswer(chosenText) {
-  cancelAnswerTimer();
-  if (chosenText === answer) {
-    const p = players.get(buzzedId);
-    if (p) p.score += 1;
-    enterReveal();
-  } else {
-    if (chosenText && !wrongChoices.includes(chosenText)) wrongChoices.push(chosenText);
-    resolveWrong();
-  }
-}
-
 function enterReveal() {
   cancelAllTimers();
   phase = 'reveal';
   revealedAnswer = answer;
   buzzedId = null;
+  resolvedCount = 0;
+  letterChoices = [];
   broadcastState();
   advanceTimer = setTimeout(() => {
     advanceTimer = null;
@@ -223,8 +298,8 @@ function drawAndOpenNextQuestion() {
   const picked = drawNextQuestion(difficulty);
   question = picked ? picked.question : '';
   answer = picked ? picked.answer : '';
-  choices = picked ? buildChoices(questionBanks[difficulty], picked) : [];
-  wrongChoices = [];
+  resolvedCount = 0;
+  letterChoices = [];
   revealedAnswer = '';
   buzzedId = null;
   lockedOut.clear();
@@ -272,8 +347,8 @@ io.on('connection', (socket) => {
     phase = 'open';
     question = '';
     answer = '';
-    choices = [];
-    wrongChoices = [];
+    resolvedCount = 0;
+    letterChoices = [];
     revealedAnswer = '';
     buzzedId = null;
     lockedOut.clear();
@@ -287,15 +362,15 @@ io.on('connection', (socket) => {
     cancelCpuTimer();
     cancelNoBuzzTimer();
     buzzedId = socket.id;
+    resolvedCount = 0;
     phase = 'buzzed';
-    broadcastState();
-    scheduleAnswerTimeout();
+    advanceLetterOrFinish();
   });
 
   socket.on('player:answer', ({ choice } = {}) => {
     if (!started || phase !== 'buzzed' || socket.id !== buzzedId) return;
-    if (typeof choice !== 'string' || !choices.includes(choice)) return;
-    resolveAnswer(choice);
+    if (typeof choice !== 'string' || !letterChoices.includes(choice)) return;
+    resolveLetterChoice(choice);
   });
 
   socket.on('disconnect', () => {
@@ -310,8 +385,10 @@ io.on('connection', (socket) => {
     }
 
     if (wasBuzzed) {
-      cancelAnswerTimer();
+      cancelLetterTimer();
       buzzedId = null;
+      resolvedCount = 0;
+      letterChoices = [];
       if (players.size === 0) {
         phase = 'open';
         broadcastState();

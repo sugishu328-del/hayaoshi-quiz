@@ -46,6 +46,9 @@ const questionDisplay = document.getElementById('question-display');
 const revealBanner = document.getElementById('reveal-banner');
 const choicesContainer = document.getElementById('choices');
 const choiceButtons = document.querySelectorAll('.choice-btn');
+const answerProgressPanel = document.getElementById('answer-progress-panel');
+const answerProgressText = document.getElementById('answer-progress-text');
+const letterTimerEl = document.getElementById('letter-timer');
 
 buzzBtn.addEventListener('click', () => {
   socket.emit('player:buzz');
@@ -57,6 +60,39 @@ choiceButtons.forEach((btn) => {
     socket.emit('player:answer', { choice: btn.textContent });
   });
 });
+
+// 1文字ごとの制限時間を見た目でカウントダウン表示する（実際の判定はサーバー側で行う）
+const LETTER_TIMEOUT_SECONDS = 3;
+const letterCountdown = { key: null, timer: null, remaining: 0 };
+
+function stopLetterCountdown() {
+  if (letterCountdown.timer) {
+    clearInterval(letterCountdown.timer);
+    letterCountdown.timer = null;
+  }
+  letterCountdown.key = null;
+  letterTimerEl.textContent = '';
+}
+
+function updateLetterCountdown(active, key) {
+  if (!active) {
+    stopLetterCountdown();
+    return;
+  }
+  if (letterCountdown.key === key) return;
+  stopLetterCountdown();
+  letterCountdown.key = key;
+  letterCountdown.remaining = LETTER_TIMEOUT_SECONDS;
+  letterTimerEl.textContent = String(letterCountdown.remaining);
+  letterCountdown.timer = setInterval(() => {
+    letterCountdown.remaining--;
+    letterTimerEl.textContent = String(Math.max(letterCountdown.remaining, 0));
+    if (letterCountdown.remaining <= 0) {
+      clearInterval(letterCountdown.timer);
+      letterCountdown.timer = null;
+    }
+  }, 1000);
+}
 
 function renderPlayerList(container, players, buzzedId) {
   container.innerHTML = '';
@@ -129,8 +165,8 @@ socket.on('state', (state) => {
     difficulty,
     phase,
     question,
-    choices,
-    wrongChoices,
+    answerProgress,
+    letterChoices,
     revealedAnswer,
     buzzedId,
     buzzedName,
@@ -157,15 +193,17 @@ socket.on('state', (state) => {
     revealBanner.textContent = `正解は「${revealedAnswer}」でした！`;
   }
 
-  // 選択肢は早押しに勝った本人にだけ表示する
-  const showChoices = phase === 'buzzed' && isSelfBuzzed && choices && choices.length > 0;
+  // 解答の進捗（確定した文字）は全員に見せる。選択肢のボタンは早押しに勝った本人にだけ表示する。
+  const showProgress = phase === 'buzzed';
+  const showChoices = phase === 'buzzed' && isSelfBuzzed && letterChoices && letterChoices.length > 0;
+  answerProgressPanel.classList.toggle('hidden', !showProgress);
+  answerProgressText.textContent = answerProgress || '';
+  updateLetterCountdown(showProgress, (answerProgress || '').length);
+
   choicesContainer.classList.toggle('hidden', !showChoices);
   choiceButtons.forEach((btn, i) => {
-    const text = choices[i] || '';
-    btn.textContent = text;
-    const isWrong = wrongChoices && wrongChoices.includes(text);
-    btn.classList.toggle('wrong-choice', isWrong);
-    btn.disabled = isWrong;
+    btn.textContent = letterChoices[i] || '';
+    btn.disabled = false;
   });
 
   if (phase === 'open') {
@@ -173,7 +211,7 @@ socket.on('state', (state) => {
     buzzBtn.disabled = !me || me.locked;
   } else if (phase === 'buzzed') {
     if (isSelfBuzzed) {
-      statusBanner.textContent = 'あなたが押しました！選択肢から答えを選んでください';
+      statusBanner.textContent = 'あなたが押しました！文字を選んで答えを完成させてください';
     } else {
       statusBanner.textContent = `${buzzedName} が回答中…`;
     }
