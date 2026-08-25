@@ -51,6 +51,58 @@ let difficulty = 'A'; // A | B | C（自動出題モード用）
 let autoStarted = false; // 自動出題モードで難易度を選んでスタート済みか
 const lockedOut = new Set(); // このお題で誤答済みのplayerId
 
+// ---- CPU対戦相手（自動出題モードでスタート後のみ参加） ----
+const CPU_ID = 'cpu';
+const CPU_ACCURACY = { A: 0.9, B: 0.6, C: 0.3 }; // 難易度ごとの正答率
+let cpuTimer = null;
+
+function cancelCpuTimer() {
+  if (cpuTimer) {
+    clearTimeout(cpuTimer);
+    cpuTimer = null;
+  }
+}
+
+function scheduleCpuBuzzIfNeeded() {
+  cancelCpuTimer();
+  if (!players.has(CPU_ID)) return;
+  if (mode !== 'auto' || !autoStarted) return;
+  if (phase !== 'open' || !answer) return;
+  if (lockedOut.has(CPU_ID)) return;
+
+  const roundQuestion = question;
+  const reactionDelay = 1000 + Math.random() * 3000; // 1〜4秒でランダムに早押し
+  cpuTimer = setTimeout(() => {
+    cpuTimer = null;
+    if (phase !== 'open' || question !== roundQuestion) return; // 状況が変わっていたら何もしない
+    if (!players.has(CPU_ID) || lockedOut.has(CPU_ID)) return;
+
+    buzzedId = CPU_ID;
+    phase = 'buzzed';
+    broadcastState();
+
+    const thinkDelay = 800 + Math.random() * 700; // 「考え中」の間
+    setTimeout(() => {
+      if (buzzedId !== CPU_ID || phase !== 'buzzed') return;
+      const correct = Math.random() < (CPU_ACCURACY[difficulty] ?? 0.5);
+      if (correct) {
+        const p = players.get(CPU_ID);
+        if (p) p.score += 1;
+        phase = 'idle';
+        buzzedId = null;
+        question = '';
+        answer = '';
+        lockedOut.clear();
+      } else {
+        lockedOut.add(CPU_ID);
+        buzzedId = null;
+        phase = 'open';
+      }
+      broadcastState();
+    }, thinkDelay);
+  }, reactionDelay);
+}
+
 function publicPlayers() {
   return [...players.entries()].map(([id, p]) => ({
     id,
@@ -94,6 +146,7 @@ io.on('connection', (socket) => {
   socket.on('host:setMode', ({ mode: m } = {}) => {
     if (socket.id !== hostId) return;
     if (m !== 'manual' && m !== 'auto') return;
+    cancelCpuTimer();
     mode = m;
     autoStarted = false;
     phase = 'idle';
@@ -113,6 +166,7 @@ io.on('connection', (socket) => {
 
   socket.on('host:startAuto', () => {
     if (socket.id !== hostId || mode !== 'auto') return;
+    cancelCpuTimer();
     autoStarted = true;
     phase = 'idle';
     buzzedId = null;
@@ -124,6 +178,7 @@ io.on('connection', (socket) => {
 
   socket.on('host:changeDifficulty', () => {
     if (socket.id !== hostId || mode !== 'auto') return;
+    cancelCpuTimer();
     autoStarted = false;
     phase = 'idle';
     buzzedId = null;
@@ -133,8 +188,28 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
+  socket.on('host:setCpu', ({ enabled } = {}) => {
+    if (socket.id !== hostId) return;
+    if (enabled) {
+      if (!players.has(CPU_ID)) players.set(CPU_ID, { name: 'CPU', score: 0 });
+    } else {
+      cancelCpuTimer();
+      players.delete(CPU_ID);
+      lockedOut.delete(CPU_ID);
+      if (buzzedId === CPU_ID) {
+        buzzedId = null;
+        phase = 'idle';
+        question = '';
+        answer = '';
+        lockedOut.clear();
+      }
+    }
+    broadcastState();
+  });
+
   socket.on('host:open', ({ question: q } = {}) => {
     if (socket.id !== hostId) return;
+    cancelCpuTimer();
     if (mode === 'auto') {
       if (!autoStarted) return;
       const picked = drawNextQuestion(difficulty);
@@ -147,10 +222,12 @@ io.on('connection', (socket) => {
     phase = 'open';
     buzzedId = null;
     broadcastState();
+    scheduleCpuBuzzIfNeeded();
   });
 
   socket.on('host:reset', () => {
     if (socket.id !== hostId) return;
+    cancelCpuTimer();
     phase = 'idle';
     buzzedId = null;
     question = '';
@@ -160,7 +237,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('host:correct', () => {
-    if (socket.id !== hostId || !buzzedId) return;
+    if (socket.id !== hostId || !buzzedId || buzzedId === CPU_ID) return;
+    cancelCpuTimer();
     const p = players.get(buzzedId);
     if (p) p.score += 1;
     phase = 'idle';
@@ -172,17 +250,19 @@ io.on('connection', (socket) => {
   });
 
   socket.on('host:wrong', () => {
-    if (socket.id !== hostId || !buzzedId) return;
+    if (socket.id !== hostId || !buzzedId || buzzedId === CPU_ID) return;
     lockedOut.add(buzzedId);
     buzzedId = null;
     phase = 'open';
     broadcastState();
+    scheduleCpuBuzzIfNeeded();
   });
 
   socket.on('player:buzz', () => {
     if (phase !== 'open') return;
     if (!players.has(socket.id)) return;
     if (lockedOut.has(socket.id)) return;
+    cancelCpuTimer();
     phase = 'buzzed';
     buzzedId = socket.id;
     broadcastState();

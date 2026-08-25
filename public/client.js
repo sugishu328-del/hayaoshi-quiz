@@ -79,6 +79,11 @@ difficultyButtons.forEach((btn) => {
 startAutoBtn.addEventListener('click', () => socket.emit('host:startAuto'));
 changeDifficultyBtn.addEventListener('click', () => socket.emit('host:changeDifficulty'));
 
+const cpuToggle = document.getElementById('cpu-toggle-checkbox');
+cpuToggle.addEventListener('change', () => {
+  socket.emit('host:setCpu', { enabled: cpuToggle.checked });
+});
+
 function applyHostPanel(mode, difficulty, autoStarted) {
   modeButtons.forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
 
@@ -195,6 +200,8 @@ socket.on('state', (state) => {
   // 出題者画面
   applyHostPanel(mode, difficulty, autoStarted);
   modeButtons.forEach((b) => (b.disabled = phase !== 'idle'));
+  cpuToggle.checked = players.some((p) => p.id === 'cpu');
+  cpuToggle.disabled = phase !== 'idle';
   updateQuestionReveal(hostReveal, hostQuestionDisplay, question, phase);
   renderInstant(hostAnswerDisplay, answer ? `正解: ${answer}` : '');
   renderPlayerList(hostPlayerList, players, buzzedId);
@@ -210,9 +217,15 @@ socket.on('state', (state) => {
     correctBtn.disabled = true;
     wrongBtn.disabled = true;
   } else if (phase === 'buzzed') {
-    hostStatus.textContent = `${buzzedName} が回答権を獲得！`;
     hostStatus.className = 'status-banner buzzed';
-    correctBtn.disabled = false;
-    wrongBtn.disabled = false;
+    if (buzzedId === 'cpu') {
+      hostStatus.textContent = 'CPUが回答中…（自動判定）';
+      correctBtn.disabled = true;
+      wrongBtn.disabled = true;
+    } else {
+      hostStatus.textContent = `${buzzedName} が回答権を獲得！`;
+      correctBtn.disabled = false;
+      wrongBtn.disabled = false;
+    }
   }
 });
