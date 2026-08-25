@@ -48,8 +48,13 @@ function shuffleArray(arr) {
   return a;
 }
 
-// 正解1つ＋同じ難易度バンクの他の答えからランダムに3つ選んで4択を作る
-function buildChoices(bank, correctAnswer) {
+// 4択を作る。問題ごとに用意した誤答しやすい選択肢（distractors）があれば優先して使い、
+// 無ければ同じ難易度バンクの他の答えからランダムに3つ選んで補う。
+function buildChoices(bank, item) {
+  const correctAnswer = item.answer;
+  if (Array.isArray(item.distractors) && item.distractors.length >= 3) {
+    return shuffleArray([correctAnswer, ...shuffleArray(item.distractors).slice(0, 3)]);
+  }
   const pool = bank.map((q) => q.answer).filter((a) => a !== correctAnswer);
   const shuffledPool = shuffleArray(pool);
   const distractors = [];
@@ -62,7 +67,7 @@ function buildChoices(bank, correctAnswer) {
 
 // ---- CPU対戦相手（参加は任意、正答率は難易度に応じる） ----
 const CPU_ID = 'cpu';
-const CPU_ACCURACY = { A: 0.9, B: 0.6, C: 0.3 };
+const CPU_ACCURACY = { A: 0.3, B: 0.6, C: 0.9 }; // A=むずかしい, C=かんたん
 
 // ---- ゲーム状態（シングルルーム、出題者なし・全員参加者） ----
 const players = new Map(); // socketId -> { name, score }
@@ -218,7 +223,7 @@ function drawAndOpenNextQuestion() {
   const picked = drawNextQuestion(difficulty);
   question = picked ? picked.question : '';
   answer = picked ? picked.answer : '';
-  choices = picked ? buildChoices(questionBanks[difficulty], picked.answer) : [];
+  choices = picked ? buildChoices(questionBanks[difficulty], picked) : [];
   wrongChoices = [];
   revealedAnswer = '';
   buzzedId = null;

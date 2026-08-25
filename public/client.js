@@ -72,7 +72,7 @@ function renderPlayerList(container, players, buzzedId) {
     });
 }
 
-const TYPEWRITER_SPEED_MS = 70;
+const TYPEWRITER_SPEED_MS = 140;
 const revealState = { text: null, index: 0, timer: null };
 
 // 早押しクイズなので問題文を1文字ずつ表示する。誰かが押している間は表示を止め、
