@@ -117,9 +117,11 @@ let advanceTimer = null;
 let cpuWillSucceed = true;
 let cpuMistakeAt = -1; // 何文字目（ガード対象文字のうち何番目）でわざと間違えるか
 let cpuStepIndex = 0;
+let isFirstLetterPick = true; // 早押し後、最初の1文字目だけ制限時間を長くする
 
 const NO_BUZZ_TIMEOUT_MS = 20000; // 誰も押さないまま経過したら諦めて次の問題へ
-const LETTER_TIMEOUT_MS = 3000; // 1文字ごとに選ばないまま経過したら誤答扱い
+const FIRST_LETTER_TIMEOUT_MS = 5000; // 早押し直後、1文字目だけの制限時間
+const LETTER_TIMEOUT_MS = 3000; // 2文字目以降、選ばないまま経過したら誤答扱い
 const REVEAL_DELAY_MS = 3000; // 正解発表を表示しておく時間
 
 function cancelCpuTimer() { if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; } }
@@ -178,7 +180,7 @@ function scheduleNoBuzzTimer() {
   }, NO_BUZZ_TIMEOUT_MS);
 }
 
-function scheduleLetterTimeout() {
+function scheduleLetterTimeout(timeoutMs) {
   cancelLetterTimer();
   const myBuzzedId = buzzedId;
   const myResolvedCount = resolvedCount;
@@ -186,7 +188,7 @@ function scheduleLetterTimeout() {
     letterTimer = null;
     if (!started || phase !== 'buzzed' || buzzedId !== myBuzzedId || resolvedCount !== myResolvedCount) return;
     resolveWrong();
-  }, LETTER_TIMEOUT_MS);
+  }, timeoutMs);
 }
 
 // 現在のresolvedCountから次に選ばせる文字を用意する。スキップ文字は自動で読み飛ばし、
@@ -201,7 +203,8 @@ function advanceLetterOrFinish() {
   }
   letterChoices = buildLetterChoices(answer[resolvedCount]);
   broadcastState();
-  scheduleLetterTimeout();
+  scheduleLetterTimeout(isFirstLetterPick ? FIRST_LETTER_TIMEOUT_MS : LETTER_TIMEOUT_MS);
+  isFirstLetterPick = false;
   if (buzzedId === CPU_ID) scheduleCpuLetterPick();
 }
 
@@ -238,6 +241,7 @@ function scheduleCpuBuzzIfNeeded() {
     cancelNoBuzzTimer();
     buzzedId = CPU_ID;
     resolvedCount = 0;
+    isFirstLetterPick = true;
     cpuStepIndex = 0;
     cpuWillSucceed = Math.random() < (CPU_ACCURACY[difficulty] ?? 0.5);
     const guessableCount = countGuessableChars(answer);
@@ -363,6 +367,7 @@ io.on('connection', (socket) => {
     cancelNoBuzzTimer();
     buzzedId = socket.id;
     resolvedCount = 0;
+    isFirstLetterPick = true;
     phase = 'buzzed';
     advanceLetterOrFinish();
   });

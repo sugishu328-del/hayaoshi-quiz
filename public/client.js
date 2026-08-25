@@ -17,6 +17,7 @@ joinBtn.addEventListener('click', () => {
 });
 
 // ---- セットアップパネル（誰でも操作可） ----
+const gameTitle = document.getElementById('game-title');
 const setupPanel = document.getElementById('setup-panel');
 const playPanel = document.getElementById('play-panel');
 const difficultyButtons = document.querySelectorAll('.difficulty-btn');
@@ -61,7 +62,9 @@ choiceButtons.forEach((btn) => {
   });
 });
 
-// 1文字ごとの制限時間を見た目でカウントダウン表示する（実際の判定はサーバー側で行う）
+// 1文字ごとの制限時間を見た目でカウントダウン表示する（実際の判定はサーバー側で行う）。
+// 早押し直後の1文字目だけ5秒、2文字目以降は3秒。
+const FIRST_LETTER_TIMEOUT_SECONDS = 5;
 const LETTER_TIMEOUT_SECONDS = 3;
 const letterCountdown = { key: null, timer: null, remaining: 0 };
 
@@ -74,7 +77,7 @@ function stopLetterCountdown() {
   letterTimerEl.textContent = '';
 }
 
-function updateLetterCountdown(active, key) {
+function updateLetterCountdown(active, key, isFirstLetter) {
   if (!active) {
     stopLetterCountdown();
     return;
@@ -82,7 +85,7 @@ function updateLetterCountdown(active, key) {
   if (letterCountdown.key === key) return;
   stopLetterCountdown();
   letterCountdown.key = key;
-  letterCountdown.remaining = LETTER_TIMEOUT_SECONDS;
+  letterCountdown.remaining = isFirstLetter ? FIRST_LETTER_TIMEOUT_SECONDS : LETTER_TIMEOUT_SECONDS;
   letterTimerEl.textContent = String(letterCountdown.remaining);
   letterCountdown.timer = setInterval(() => {
     letterCountdown.remaining--;
@@ -175,6 +178,7 @@ socket.on('state', (state) => {
 
   renderPlayerList(playerList, players, buzzedId);
 
+  gameTitle.classList.toggle('hidden', started);
   setupPanel.classList.toggle('hidden', started);
   playPanel.classList.toggle('hidden', !started);
   difficultyButtons.forEach((b) => b.classList.toggle('active', b.dataset.difficulty === difficulty));
@@ -198,7 +202,7 @@ socket.on('state', (state) => {
   const showChoices = phase === 'buzzed' && isSelfBuzzed && letterChoices && letterChoices.length > 0;
   answerProgressPanel.classList.toggle('hidden', !showProgress);
   answerProgressText.textContent = answerProgress || '';
-  updateLetterCountdown(showProgress, (answerProgress || '').length);
+  updateLetterCountdown(showProgress, (answerProgress || '').length, (answerProgress || '').length === 0);
 
   choicesContainer.classList.toggle('hidden', !showChoices);
   choiceButtons.forEach((btn, i) => {
