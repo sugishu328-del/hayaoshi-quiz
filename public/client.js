@@ -76,7 +76,7 @@ const TYPEWRITER_SPEED_MS = 140;
 const revealState = { text: null, index: 0, timer: null };
 
 // 早押しクイズなので問題文を1文字ずつ表示する。誰かが押している間は表示を止め、
-// 誤答でopenに戻ったら続きから再開する。
+// 誤答でopenに戻ったら続きから再開する。正解して発表(reveal)に入ったら全文を表示する。
 function updateQuestionReveal(el, text, phase) {
   if (text !== revealState.text) {
     if (revealState.timer) clearInterval(revealState.timer);
@@ -87,6 +87,17 @@ function updateQuestionReveal(el, text, phase) {
     el.classList.toggle('hidden', !text);
     el.classList.remove('revealing');
     if (!text) return;
+  }
+
+  if (phase === 'reveal') {
+    if (revealState.timer) {
+      clearInterval(revealState.timer);
+      revealState.timer = null;
+    }
+    revealState.index = revealState.text.length;
+    el.textContent = revealState.text;
+    el.classList.remove('revealing');
+    return;
   }
 
   if (phase !== 'open') {
