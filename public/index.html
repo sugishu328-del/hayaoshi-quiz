@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>早押しクイズ</title>
 <link rel="stylesheet" href="style.css" />
 </head>
@@ -16,51 +16,57 @@
   </div>
 </div>
 
-<div id="game-screen" class="screen hidden">
-  <h1 id="game-title">早押しクイズ</h1>
+<div id="game-screen" class="screen game-screen hidden">
+  <header id="player-bar" class="player-bar">
+    <ul id="player-list" class="player-list"></ul>
+  </header>
 
-  <div id="setup-panel" class="setup-panel">
-    <p class="setup-label">難易度を選んでください</p>
-    <div class="difficulty-btns">
-      <button class="difficulty-btn active" data-difficulty="A">A（むずかしい）</button>
-      <button class="difficulty-btn" data-difficulty="B">B（ふつう）</button>
-      <button class="difficulty-btn" data-difficulty="C">C（かんたん）</button>
+  <div class="game-body">
+    <h1 id="game-title">早押しクイズ</h1>
+
+    <div id="setup-panel" class="setup-panel">
+      <p class="setup-label">難易度を選んでください</p>
+      <div class="difficulty-btns">
+        <button class="difficulty-btn active" data-difficulty="A">A（むずかしい）</button>
+        <button class="difficulty-btn" data-difficulty="B">B（ふつう）</button>
+        <button class="difficulty-btn" data-difficulty="C">C（かんたん）</button>
+      </div>
+      <label class="cpu-toggle">
+        <input type="checkbox" id="cpu-toggle-checkbox" />
+        CPU対戦相手を参加させる
+      </label>
+      <button id="start-game-btn">ゲーム開始</button>
     </div>
-    <label class="cpu-toggle">
-      <input type="checkbox" id="cpu-toggle-checkbox" />
-      CPU対戦相手を参加させる
-    </label>
-    <button id="start-game-btn">ゲーム開始</button>
+
+    <div id="play-panel" class="play-panel hidden">
+      <div class="session-info">
+        難易度 <span id="active-difficulty-label"></span> で開催中
+        <button id="end-game-btn">終了</button>
+      </div>
+
+      <div class="stage">
+        <div id="question-number" class="question-number"></div>
+        <div id="question-display" class="question-display"></div>
+      </div>
+
+      <div id="status-banner" class="status-banner idle"></div>
+
+      <div id="answer-progress-panel" class="answer-progress-panel">
+        <span class="answer-progress-label">解答中…</span>
+        <span id="answer-progress-text" class="answer-progress-text"></span>
+        <span id="letter-timer" class="letter-timer"></span>
+      </div>
+
+      <button id="buzz-btn" class="buzz-btn" disabled>押す！</button>
+
+      <div id="choices" class="choices">
+        <button class="choice-btn" data-index="0"></button>
+        <button class="choice-btn" data-index="1"></button>
+        <button class="choice-btn" data-index="2"></button>
+        <button class="choice-btn" data-index="3"></button>
+      </div>
+    </div>
   </div>
-
-  <div id="play-panel" class="play-panel hidden">
-    <div class="session-info">
-      難易度 <span id="active-difficulty-label"></span> で開催中
-      <button id="end-game-btn">終了して設定に戻る</button>
-    </div>
-
-    <div id="question-number" class="question-number hidden"></div>
-    <div id="question-display" class="question-display hidden"></div>
-    <div id="reveal-banner" class="reveal-banner hidden"></div>
-    <div id="status-banner" class="status-banner idle">出題を待っています…</div>
-    <button id="buzz-btn" class="buzz-btn" disabled>押す！</button>
-
-    <div id="answer-progress-panel" class="answer-progress-panel hidden">
-      <span class="answer-progress-label">解答中…</span>
-      <span id="answer-progress-text" class="answer-progress-text"></span>
-      <span id="letter-timer" class="letter-timer"></span>
-    </div>
-
-    <div id="choices" class="choices hidden">
-      <button class="choice-btn" data-index="0"></button>
-      <button class="choice-btn" data-index="1"></button>
-      <button class="choice-btn" data-index="2"></button>
-      <button class="choice-btn" data-index="3"></button>
-    </div>
-  </div>
-
-  <h2>参加者一覧</h2>
-  <ul id="player-list" class="player-list"></ul>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>

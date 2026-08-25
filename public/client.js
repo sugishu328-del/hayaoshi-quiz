@@ -40,12 +40,14 @@ startGameBtn.addEventListener('click', () => socket.emit('game:start'));
 endGameBtn.addEventListener('click', () => socket.emit('game:end'));
 
 // ---- プレイ画面 ----
+// 出たり消えたりする要素は display ではなく visibility を切り替える（invisibleクラス）。
+// こうすることで、非表示になっても場所は確保されたままになり、下にあるボタンなどの
+// 位置がフェーズの切り替わりで動かない（画面の上下が固定される）。
 const statusBanner = document.getElementById('status-banner');
 const buzzBtn = document.getElementById('buzz-btn');
 const playerList = document.getElementById('player-list');
 const questionNumberEl = document.getElementById('question-number');
 const questionDisplay = document.getElementById('question-display');
-const revealBanner = document.getElementById('reveal-banner');
 const choicesContainer = document.getElementById('choices');
 const choiceButtons = document.querySelectorAll('.choice-btn');
 const answerProgressPanel = document.getElementById('answer-progress-panel');
@@ -98,6 +100,7 @@ function updateLetterCountdown(active, key, isFirstLetter) {
   }, 1000);
 }
 
+// 上部の参加者バーは横並びの小さいチップ表示（人数が増えても1行に収まるよう縮む）。
 function renderPlayerList(container, players, buzzedId) {
   container.innerHTML = '';
   players
@@ -105,7 +108,8 @@ function renderPlayerList(container, players, buzzedId) {
     .sort((a, b) => b.score - a.score)
     .forEach((p) => {
       const li = document.createElement('li');
-      li.textContent = `${p.name}（${p.score}点）`;
+      li.textContent = `${p.name} ${p.score}点`;
+      li.title = `${p.name}（${p.score}点）`;
       if (p.locked) li.classList.add('locked');
       if (p.id === buzzedId) li.classList.add('buzzed');
       container.appendChild(li);
@@ -124,7 +128,6 @@ function updateQuestionReveal(el, text, phase) {
     revealState.text = text;
     revealState.index = 0;
     el.textContent = '';
-    el.classList.toggle('hidden', !text);
     el.classList.remove('revealing');
     if (!text) return;
   }
@@ -190,53 +193,45 @@ socket.on('state', (state) => {
   if (!started) return;
 
   // 正解発表の後、次の問題文が出る前に「第N問」だけを一瞬表示する。
+  // question-number と question-display は同じ枠に重ねて表示し、
+  // 入れ替わってもレイアウトの高さが変わらないようにする。
   questionNumberEl.textContent = `第${questionNumber}問`;
-  questionNumberEl.classList.toggle('hidden', phase !== 'announce');
-
-  if (phase === 'announce') {
-    questionDisplay.classList.add('hidden');
-  } else {
-    updateQuestionReveal(questionDisplay, question, phase);
-  }
+  questionNumberEl.classList.toggle('invisible', phase !== 'announce');
+  questionDisplay.classList.toggle('invisible', phase === 'announce');
+  updateQuestionReveal(questionDisplay, question, phase);
 
   const me = players.find((p) => p.id === socket.id);
   const isSelfBuzzed = buzzedId === socket.id;
 
-  revealBanner.classList.toggle('hidden', phase !== 'reveal');
-  if (phase === 'reveal') {
-    revealBanner.textContent = `正解は「${revealedAnswer}」でした！`;
-  }
-
   // 解答の進捗（確定した文字）は全員に見せる。選択肢のボタンは早押しに勝った本人にだけ表示する。
   const showProgress = phase === 'buzzed';
   const showChoices = phase === 'buzzed' && isSelfBuzzed && letterChoices && letterChoices.length > 0;
-  answerProgressPanel.classList.toggle('hidden', !showProgress);
+  answerProgressPanel.classList.toggle('invisible', !showProgress);
   answerProgressText.textContent = answerProgress || '';
   updateLetterCountdown(showProgress, (answerProgress || '').length, (answerProgress || '').length === 0);
 
-  choicesContainer.classList.toggle('hidden', !showChoices);
+  choicesContainer.classList.toggle('invisible', !showChoices);
   choiceButtons.forEach((btn, i) => {
     btn.textContent = letterChoices[i] || '';
     btn.disabled = false;
   });
 
-  if (phase === 'announce') {
-    statusBanner.classList.add('hidden');
-    buzzBtn.disabled = true;
-  } else if (phase === 'open') {
-    statusBanner.classList.add('hidden');
-    buzzBtn.disabled = !me || me.locked;
-  } else if (phase === 'buzzed') {
-    if (isSelfBuzzed) {
-      statusBanner.textContent = 'あなたが押しました！文字を選んで答えを完成させてください';
-    } else {
-      statusBanner.textContent = `${buzzedName} が回答中…`;
-    }
+  if (phase === 'buzzed') {
+    statusBanner.textContent = isSelfBuzzed
+      ? 'あなたが押しました！文字を選んで答えを完成させてください'
+      : `${buzzedName} が回答中…`;
     statusBanner.className = 'status-banner buzzed';
     buzzBtn.disabled = true;
   } else if (phase === 'reveal') {
-    statusBanner.textContent = '正解発表';
-    statusBanner.className = 'status-banner idle';
+    statusBanner.textContent = `正解は「${revealedAnswer}」でした！`;
+    statusBanner.className = 'status-banner reveal';
     buzzBtn.disabled = true;
+  } else {
+    // announce / open
+    statusBanner.classList.add('invisible');
+    buzzBtn.disabled = phase !== 'open' || !me || me.locked;
+  }
+  if (phase === 'buzzed' || phase === 'reveal') {
+    statusBanner.classList.remove('invisible');
   }
 });
