@@ -99,7 +99,7 @@ const CPU_ACCURACY = { A: 0.3, B: 0.6, C: 0.9 }; // A=むずかしい, C=かん�
 // ---- ゲーム状態（シングルルーム、出題者なし・全員参加者） ----
 const players = new Map(); // socketId -> { name, score }
 let started = false;
-let difficulty = 'A';
+let difficulty = 'B';
 let phase = 'open'; // announce | open | buzzed | wrong | reveal（started=falseの間は未使用）
 let question = '';
 let questionNumber = 0; // 何問目か（game:startで1から始まる）
@@ -306,11 +306,13 @@ function resolveWrong(choice) {
   cancelCpuLetterTimer();
   if (buzzedId) lockedOut.add(buzzedId);
   buzzedId = null;
-  resolvedCount = 0;
-  letterChoices = [];
 
   if (choice) {
-    wrongLetterChoice = choice;
+    // 「✕不正解」には、今回の解答でここまで選んだ文字を全部つなげて見せる
+    // （それまで正解していた分＝answerの確定済み部分 + 今回誤答した1文字）。
+    wrongLetterChoice = answer.slice(0, resolvedCount) + choice;
+    resolvedCount = 0;
+    letterChoices = [];
     phase = 'wrong';
     broadcastState();
     wrongTimer = setTimeout(() => {
@@ -318,6 +320,8 @@ function resolveWrong(choice) {
       proceedAfterWrong();
     }, WRONG_ANSWER_DELAY_MS);
   } else {
+    resolvedCount = 0;
+    letterChoices = [];
     proceedAfterWrong();
   }
 }
