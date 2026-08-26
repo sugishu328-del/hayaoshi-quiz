@@ -45,14 +45,42 @@ function unlockAudio() {
   });
 }
 
-function playSfx(audio) {
-  audio.currentTime = 0;
+// startAt: 音声ファイル先頭の無音部分を飛ばして再生を始める位置（秒）
+// playDurationMs: 「○正解」「第N問」等のポップアップの表示時間に合わせて途中で
+//   フェードアウトさせるための、再生開始からの長さ（ミリ秒）。nullなら最後まで再生する。
+function playSfx(audio, { startAt = 0, playDurationMs = null, fadeMs = 150 } = {}) {
+  if (audio._fadeStartTimeout) { clearTimeout(audio._fadeStartTimeout); audio._fadeStartTimeout = null; }
+  if (audio._fadeInterval) { clearInterval(audio._fadeInterval); audio._fadeInterval = null; }
+  audio.currentTime = startAt;
+  audio.volume = 1;
   audio.play().catch(() => {});
+
+  if (playDurationMs === null) return;
+  const fadeStartMs = Math.max(0, playDurationMs - fadeMs);
+  audio._fadeStartTimeout = setTimeout(() => {
+    const steps = 10;
+    const stepMs = fadeMs / steps;
+    let i = 0;
+    audio._fadeInterval = setInterval(() => {
+      i++;
+      audio.volume = Math.max(0, 1 - i / steps);
+      if (i >= steps) {
+        clearInterval(audio._fadeInterval);
+        audio._fadeInterval = null;
+        audio.pause();
+        audio.volume = 1; // 次回の再生に備えて元の音量に戻しておく
+      }
+    }, stepMs);
+  }, fadeStartMs);
 }
 
 function playBuzzSound() { playSfx(sfxBuzz); }
-function playAnnounceSound() { playSfx(sfxAnnounce); }
-function playCorrectSound() { playSfx(sfxCorrect); }
+// 「第N問」の表示は1.5秒（ANNOUNCE_DELAY_MS, server.js）なので、表示が消えた後まで
+// 音が鳴り続けてズレて聞こえないよう、そこに収まるようフェードアウトさせる。
+function playAnnounceSound() { playSfx(sfxAnnounce, { playDurationMs: 1450 }); }
+// 「○正解」の表示は1.5秒（CORRECT_ANSWER_DELAY_MS, server.js）。この音声ファイルは
+// 先頭に少し無音があるので、そこを飛ばしてから鳴らし、かつ表示時間に収まるようにする。
+function playCorrectSound() { playSfx(sfxCorrect, { startAt: 0.08, playDurationMs: 1450 }); }
 function playWrongSound() { playSfx(sfxWrong); }
 
 const joinScreen = document.getElementById('join-screen');
@@ -305,6 +333,7 @@ let currentPhase = null;
 let currentNoBuzzDeadline = null;
 let latestRevealedAnswer = null;
 let lastSfxPhase = null; // 出題・正解・不正解の効果音を、フェーズが切り替わった瞬間だけ鳴らすための直前値
+let sfxPhaseInitialized = false; // 参加/再接続した直後の最初のstateでは、進行中のフェーズを誤って「切り替わった」と判定しないようにする
 
 function tickNoBuzzCountdown() {
   if (currentPhase !== 'open' || !currentNoBuzzDeadline) return;
@@ -355,7 +384,11 @@ socket.on('state', (state) => {
 
   // フェーズが切り替わった瞬間にだけ効果音を鳴らす（同じフェーズ中に他の理由で
   // stateが再送されても連打で鳴ってしまわないように、直前のフェーズと比較する）。
-  if (currentPhase !== lastSfxPhase) {
+  // ただし参加/再接続した直後の最初のstateは「今のフェーズに追いついただけ」なので、
+  // それをフェーズの切り替わりとみなして音を鳴らしてしまわないようにする。
+  if (!sfxPhaseInitialized) {
+    sfxPhaseInitialized = true;
+  } else if (currentPhase !== lastSfxPhase) {
     if (currentPhase === 'announce') playAnnounceSound();
     else if (currentPhase === 'correct') playCorrectSound();
     else if (currentPhase === 'wrong') playWrongSound();
