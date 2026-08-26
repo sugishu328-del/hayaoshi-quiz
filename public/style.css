@@ -150,6 +150,7 @@ button:disabled {
 }
 
 .player-avatar {
+  position: relative;
   flex: 0 0 auto;
   width: 40px;
   height: 40px;
@@ -179,13 +180,19 @@ button:disabled {
   color: #555a6e;
 }
 
+/* アイコンの右上に重ねて表示する（カードの高さが変わって参加者バー全体の位置が
+   ずれてしまわないよう、通常のレイアウトの流れから外して絶対配置にする）。 */
 .reaction-badge {
-  padding: 2px 6px;
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  padding: 1px 4px;
   border-radius: 6px;
   background: #ff8a3d;
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   font-weight: bold;
+  white-space: nowrap;
 }
 
 .player-list li.locked {

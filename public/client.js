@@ -195,11 +195,13 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
       score.textContent = `${p.score}点`;
       li.appendChild(score);
 
+      // 反応時間バッジはアイコンの右上に重ねて表示する（カード内の行として追加すると
+      // カードの高さが変わり、バー全体の位置がガタつくため、アイコンに乗せる形にする）。
       if (showReactionFor && p.id === showReactionFor && typeof reactionMs === 'number') {
         const badge = document.createElement('span');
         badge.className = 'reaction-badge';
         badge.textContent = `${(reactionMs / 1000).toFixed(2)}秒`;
-        li.appendChild(badge);
+        avatar.appendChild(badge);
       }
       container.appendChild(li);
     });
