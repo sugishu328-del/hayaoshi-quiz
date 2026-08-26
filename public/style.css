@@ -105,7 +105,7 @@ button:disabled {
   width: 100%;
   background: #f4f5f9;
   border-bottom: 1px solid #e0e2eb;
-  padding: 12px 14px;
+  padding: 14px;
 }
 
 .player-list {
@@ -115,38 +115,70 @@ button:disabled {
   width: 100%;
   display: flex;
   flex-direction: row;
-  gap: 8px;
+  gap: 10px;
   overflow-x: auto;
 }
 
+/* 参加者ごとのカード。アイコン（今は名前の頭文字、将来的にカスタムアイコン用のスペース）を
+   上に、名前・点数を下に並べる縦並びレイアウト。 */
 .player-list li {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 170px;
+  flex: 0 0 auto;
+  width: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #e0e2eb;
+  padding: 10px 6px;
+  border-radius: 14px;
+}
+
+.player-avatar {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #5b8cff;
+  color: #fff;
+  font-weight: bold;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-name {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: #ffffff;
-  border: 1px solid #e0e2eb;
-  padding: 10px 14px;
-  border-radius: 10px;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: bold;
+  color: #1a1a2e;
+}
+
+.player-score {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #555a6e;
 }
 
 .reaction-badge {
-  display: inline-block;
-  margin-left: 6px;
   padding: 2px 6px;
   border-radius: 6px;
   background: #ff8a3d;
   color: #fff;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: bold;
 }
 
 .player-list li.locked {
   opacity: 0.4;
+}
+
+.player-list li.locked .player-name,
+.player-list li.locked .player-score {
   text-decoration: line-through;
 }
 

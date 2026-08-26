@@ -174,10 +174,26 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
     .sort((a, b) => b.score - a.score)
     .forEach((p) => {
       const li = document.createElement('li');
-      li.textContent = `${p.name} ${p.score}点`;
       li.title = `${p.name}（${p.score}点）`;
       if (p.locked) li.classList.add('locked');
       if (p.id === buzzedId) li.classList.add('buzzed');
+
+      // アイコン用のスペース（今は名前の頭文字を丸の中に表示。将来カスタムアイコンに差し替え予定）。
+      const avatar = document.createElement('span');
+      avatar.className = 'player-avatar';
+      avatar.textContent = (p.name || '?').slice(0, 1);
+      li.appendChild(avatar);
+
+      const name = document.createElement('span');
+      name.className = 'player-name';
+      name.textContent = p.name;
+      li.appendChild(name);
+
+      const score = document.createElement('span');
+      score.className = 'player-score';
+      score.textContent = `${p.score}点`;
+      li.appendChild(score);
+
       if (showReactionFor && p.id === showReactionFor && typeof reactionMs === 'number') {
         const badge = document.createElement('span');
         badge.className = 'reaction-badge';
