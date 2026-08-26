@@ -140,7 +140,22 @@ const CPU_ID = 'cpu';
 const CPU_ACCURACY = { A: 0.3, B: 0.6, C: 0.9 }; // A=むずかしい, C=かんたん
 
 // ---- ゲーム状態（シングルルーム、出題者なし・全員参加者） ----
-const players = new Map(); // socketId -> { name, score }
+// playersはブラウザごとに割り振られる永続的なclientId（localStorageに保存）をキーにする。
+// socket.idは切断・再接続のたびに変わってしまうため、スコアを引き継ぐにはclientIdで
+// 識別する必要がある。socketIdByClientIdで「今どのソケットが現役か」を管理し、
+// 切断時はすぐには削除せずDISCONNECT_GRACE_MSだけ猶予を持たせる（画面ロック等からの復帰用）。
+const players = new Map(); // clientId -> { name, score, connected, disconnectTimer }
+const socketIdByClientId = new Map(); // clientId -> 現在つながっているsocket.id
+const DISCONNECT_GRACE_MS = 60000; // この時間内に同じclientIdで再参加すればスコアを維持したまま復帰できる
+
+function connectedPlayerCount() {
+  let count = 0;
+  for (const p of players.values()) {
+    if (p.connected) count++;
+  }
+  return count;
+}
+
 let started = false;
 let difficulty = 'B';
 let phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
@@ -222,7 +237,6 @@ function publicPlayers() {
 }
 
 function broadcastState() {
-  const isBuzzedSelf = (socketId) => buzzedId === socketId;
   const base = {
     started,
     difficulty,
@@ -236,16 +250,19 @@ function broadcastState() {
     buzzedName: buzzedId ? players.get(buzzedId)?.name : null,
     lastBuzzerId,
     lastBuzzerReactionMs,
+    isFirstLetterChoice: isFirstLetterPick,
     players: publicPlayers(),
-    questionCounts: { A: questionBanks.A.length, B: questionBanks.B.length, C: questionBanks.C.length },
   };
   // answerProgress（確定した文字）は全員に見せる。letterChoices（次の文字の4択）は本人にだけ送る。
+  // 「本人」の判定はsocket.idではなく、joinで紐付けたclientId（socket.data.clientId）で行う
+  // （socket.idは再接続のたびに変わるが、clientIdはブラウザに保存されて変わらない）。
   const answerProgress = answer.slice(0, resolvedCount);
-  for (const [id, socket] of io.sockets.sockets) {
+  for (const [, socket] of io.sockets.sockets) {
+    const cid = socket.data.clientId;
     socket.emit('state', {
       ...base,
       answerProgress,
-      letterChoices: isBuzzedSelf(id) ? letterChoices : [],
+      letterChoices: (cid && buzzedId === cid) ? letterChoices : [],
     });
   }
 }
@@ -293,7 +310,10 @@ function advanceLetterOrFinish() {
     finishCorrectAnswer();
     return;
   }
-  letterChoices = resolvedCount === 0
+  // 「1文字目かどうか」はresolvedCount===0ではなくisFirstLetterPickで判定する。
+  // （もしanswerの先頭がSKIP_CHARSの文字だった場合、上のwhileループでresolvedCountが
+  // 0より先に進んでしまうため、resolvedCount===0では本当の1文字目を正しく検出できない）
+  letterChoices = isFirstLetterPick
     ? buildFirstLetterChoices(answer[resolvedCount], currentDistractors)
     : buildLetterChoices(answer[resolvedCount]);
   broadcastState();
@@ -363,7 +383,10 @@ function scheduleCpuBuzzIfNeeded() {
     isFirstLetterPick = true;
     cpuStepIndex = 0;
     cpuWillSucceed = Math.random() < (CPU_ACCURACY[difficulty] ?? 0.5);
-    const guessableCount = countGuessableChars(answer);
+    // shortAnswerが設定されている問題では、そこまで打てば正解確定してしまうので、
+    // わざと間違える位置もその範囲内でしか選ばないようにする（範囲外だと発現しないミスになる）。
+    const effectiveLength = currentShortAnswerLength !== null ? currentShortAnswerLength : answer.length;
+    const guessableCount = countGuessableChars(answer.slice(0, effectiveLength));
     cpuMistakeAt = cpuWillSucceed ? -1 : Math.floor(Math.random() * Math.max(guessableCount, 1));
     phase = 'buzzed';
     advanceLetterOrFinish();
@@ -414,7 +437,7 @@ function resolveWrong(choice) {
 
 function proceedAfterWrong() {
   wrongLetterChoice = null;
-  if (lockedOut.size >= players.size) {
+  if (lockedOut.size >= connectedPlayerCount()) {
     enterReveal();
   } else {
     phase = 'open';
@@ -472,23 +495,41 @@ function drawAndOpenNextQuestion() {
 }
 
 io.on('connection', (socket) => {
-  socket.on('join', ({ name } = {}) => {
-    const cleanName = (name || '').toString().trim().slice(0, 20) || `プレイヤー${socket.id.slice(0, 4)}`;
-    players.set(socket.id, { name: cleanName, score: 0 });
+  // clientIdはブラウザ（localStorage）に保存された永続的な識別子。名前ではなくこれで
+  // 同一人物を判定するので、再接続（画面ロック・電波切れ等でのsocket再接続）してもスコアを
+  // 引き継げる。socket.idは接続のたびに変わるため、識別には使わない。
+  socket.on('join', ({ name, clientId } = {}) => {
+    const id = (typeof clientId === 'string' && clientId.trim()) ? clientId.trim().slice(0, 100) : null;
+    if (!id) return; // clientIdを送ってこない不正なクライアントは参加させない
+    socket.data.clientId = id;
+    socketIdByClientId.set(id, socket.id);
+
+    const cleanName = (name || '').toString().trim().slice(0, 20) || `プレイヤー${id.slice(0, 4)}`;
+    const existing = players.get(id);
+    if (existing) {
+      existing.name = cleanName;
+      existing.connected = true;
+      if (existing.disconnectTimer) {
+        clearTimeout(existing.disconnectTimer);
+        existing.disconnectTimer = null;
+      }
+    } else {
+      players.set(id, { name: cleanName, score: 0, connected: true, disconnectTimer: null });
+    }
     broadcastState();
   });
 
   socket.on('game:setDifficulty', ({ difficulty: d } = {}) => {
-    if (!players.has(socket.id) || started) return;
+    if (!players.has(socket.data.clientId) || started) return;
     if (!DIFFICULTIES.includes(d)) return;
     difficulty = d;
     broadcastState();
   });
 
   socket.on('game:setCpu', ({ enabled } = {}) => {
-    if (!players.has(socket.id) || started) return;
+    if (!players.has(socket.data.clientId) || started) return;
     if (enabled) {
-      if (!players.has(CPU_ID)) players.set(CPU_ID, { name: 'CPU', score: 0 });
+      if (!players.has(CPU_ID)) players.set(CPU_ID, { name: 'CPU', score: 0, connected: true });
     } else {
       players.delete(CPU_ID);
     }
@@ -496,20 +537,23 @@ io.on('connection', (socket) => {
   });
 
   socket.on('game:start', () => {
-    if (!players.has(socket.id) || started) return;
+    if (!players.has(socket.data.clientId) || started) return;
+    if (questionBanks[difficulty].length === 0) return; // 問題が1問もない難易度では開始できない
     started = true;
     lockedOut.clear();
     drawAndOpenNextQuestion();
   });
 
   socket.on('game:end', () => {
-    if (!players.has(socket.id) || !started) return;
+    if (!players.has(socket.data.clientId) || !started) return;
     cancelAllTimers();
     started = false;
     phase = 'open';
     question = '';
     questionNumber = 0;
     answer = '';
+    currentDistractors = [];
+    currentShortAnswerLength = null;
     resolvedCount = 0;
     letterChoices = [];
     revealedAnswer = '';
@@ -521,18 +565,23 @@ io.on('connection', (socket) => {
     questionTypingStartedAt = null;
     questionOpenedAt = null;
     lockedOut.clear();
+    for (const p of players.values()) p.score = 0; // 次に始めるときはスコア0からにする
+    shuffledQueues.A = [];
+    shuffledQueues.B = [];
+    shuffledQueues.C = []; // 出題履歴もリセットして、次回また1からシャッフルし直す
     broadcastState();
   });
 
   socket.on('player:buzz', () => {
     if (!started || phase !== 'open') return;
-    if (!players.has(socket.id) || socket.id === CPU_ID) return;
-    if (lockedOut.has(socket.id)) return;
+    const clientId = socket.data.clientId;
+    if (!clientId || !players.has(clientId)) return;
+    if (lockedOut.has(clientId)) return;
     cancelCpuTimer();
     cancelNoBuzzTimer();
     pauseQuestionTyping();
-    buzzedId = socket.id;
-    lastBuzzerId = socket.id;
+    buzzedId = clientId;
+    lastBuzzerId = clientId;
     lastBuzzerReactionMs = questionOpenedAt !== null ? Date.now() - questionOpenedAt : null;
     resolvedCount = 0;
     isFirstLetterPick = true;
@@ -541,16 +590,31 @@ io.on('connection', (socket) => {
   });
 
   socket.on('player:answer', ({ choice } = {}) => {
-    if (!started || phase !== 'buzzed' || socket.id !== buzzedId) return;
+    if (!started || phase !== 'buzzed' || socket.data.clientId !== buzzedId) return;
     if (typeof choice !== 'string' || !letterChoices.includes(choice)) return;
     resolveLetterChoice(choice);
   });
 
   socket.on('disconnect', () => {
-    if (!players.has(socket.id)) return;
-    const wasBuzzed = buzzedId === socket.id;
-    players.delete(socket.id);
-    lockedOut.delete(socket.id);
+    const clientId = socket.data.clientId;
+    if (!clientId || !players.has(clientId)) return;
+    // 既に同じclientIdで新しいソケットが繋ぎ直していたら（再接続が先に完了していたら）、
+    // この古いソケットの切断イベントは無視する（誤ってプレイヤーを消してしまわないように）。
+    if (socketIdByClientId.get(clientId) !== socket.id) return;
+    socketIdByClientId.delete(clientId);
+
+    const wasBuzzed = buzzedId === clientId;
+
+    // プレイヤーはすぐには削除せず、DISCONNECT_GRACE_MSだけ猶予を持たせる。
+    // その間に同じclientIdで再参加（join）すればスコアを維持したまま復帰できる。
+    const p = players.get(clientId);
+    if (p) {
+      p.connected = false;
+      p.disconnectTimer = setTimeout(() => {
+        players.delete(clientId);
+        broadcastState();
+      }, DISCONNECT_GRACE_MS);
+    }
 
     if (!started) {
       broadcastState();
@@ -562,12 +626,12 @@ io.on('connection', (socket) => {
       buzzedId = null;
       resolvedCount = 0;
       letterChoices = [];
-      if (players.size === 0) {
-        phase = 'open';
-        broadcastState();
-        return;
-      }
-      if (lockedOut.size >= players.size) {
+      // connectedPlayerCount()が0のときはlockedOut.size(0以上)が必ずそれ以上になるので、
+      // 自然にenterReveal()に入る（＝誰もいなくても自動進行し続け、後で誰か参加/再接続
+      // したときに止まったままにならない。以前はここで無条件にopenへ戻すだけの特別扱いを
+      // していて、そのままだと再開後の自動進行タイマーが一切スケジュールされず、
+      // ラウンドが永久に止まってしまうバグがあった）。
+      if (lockedOut.size >= connectedPlayerCount()) {
         enterReveal();
       } else {
         phase = 'open';
@@ -575,7 +639,7 @@ io.on('connection', (socket) => {
         broadcastState();
         scheduleCpuBuzzIfNeeded();
       }
-    } else if (phase === 'open' && players.size > 0 && lockedOut.size >= players.size) {
+    } else if (phase === 'open' && connectedPlayerCount() > 0 && lockedOut.size >= connectedPlayerCount()) {
       enterReveal();
     } else {
       broadcastState();

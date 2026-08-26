@@ -1,9 +1,45 @@
 const socket = io();
 
+// clientIdはこのブラウザに永続的に紐づく識別子（localStorageに保存）。socket.idは
+// 再接続のたびに変わってしまうが、これを使うことで切断→再接続してもサーバー側で
+// 同一人物として認識され、スコアを引き継げる。
+function getClientId() {
+  const key = 'hayaoshi_client_id';
+  try {
+    let id = localStorage.getItem(key);
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem(key, id);
+    }
+    return id;
+  } catch (e) {
+    // プライベートブラウジング等でlocalStorageが使えない場合は、その場限りのIDで動かす
+    return crypto.randomUUID();
+  }
+}
+const clientId = getClientId();
+
 const joinScreen = document.getElementById('join-screen');
 const gameScreen = document.getElementById('game-screen');
 const nameInput = document.getElementById('name-input');
 const joinBtn = document.getElementById('join-btn');
+
+let hasJoined = false;
+let savedName = '';
+
+function doJoin(name) {
+  savedName = name;
+  hasJoined = true;
+  socket.emit('join', { name, clientId });
+}
+
+// 画面ロック・電波切れ等で切断された後、socket.ioが自動で再接続したときに
+// 自動で再参加させる（clientIdが同じなのでサーバー側でスコアが維持される）。
+socket.on('connect', () => {
+  if (hasJoined) {
+    socket.emit('join', { name: savedName, clientId });
+  }
+});
 
 joinBtn.addEventListener('click', () => {
   const name = nameInput.value.trim();
@@ -11,7 +47,7 @@ joinBtn.addEventListener('click', () => {
     nameInput.focus();
     return;
   }
-  socket.emit('join', { name });
+  doJoin(name);
   joinScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
 });
@@ -37,7 +73,22 @@ cpuToggle.addEventListener('change', () => {
 });
 
 startGameBtn.addEventListener('click', () => socket.emit('game:start'));
-endGameBtn.addEventListener('click', () => socket.emit('game:end'));
+
+// 「終了」は誤タップで即ゲームが終わってしまわないよう、確認ポップアップを挟む。
+const endConfirmOverlay = document.getElementById('end-confirm-overlay');
+const endConfirmCancelBtn = document.getElementById('end-confirm-cancel');
+const endConfirmOkBtn = document.getElementById('end-confirm-ok');
+
+endGameBtn.addEventListener('click', () => {
+  endConfirmOverlay.classList.remove('hidden');
+});
+endConfirmCancelBtn.addEventListener('click', () => {
+  endConfirmOverlay.classList.add('hidden');
+});
+endConfirmOkBtn.addEventListener('click', () => {
+  endConfirmOverlay.classList.add('hidden');
+  socket.emit('game:end');
+});
 
 // ---- プレイ画面 ----
 // 出たり消えたりする要素は display ではなく visibility を切り替える（invisibleクラス）。
@@ -72,6 +123,9 @@ buzzBtn.addEventListener('click', () => {
 choiceButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
     if (btn.disabled) return;
+    // 連打（ダブルタップ）で次の文字の選択肢に古いクリックが誤爆しないよう、
+    // 送信直後に全ボタンを無効化する（次のstateで再度有効化される）。
+    choiceButtons.forEach((b) => { b.disabled = true; });
     socket.emit('player:answer', { choice: btn.textContent });
   });
 });
@@ -232,6 +286,7 @@ socket.on('state', (state) => {
     wrongLetterChoice,
     lastBuzzerId,
     lastBuzzerReactionMs,
+    isFirstLetterChoice,
     buzzedId,
     buzzedName,
     players,
@@ -261,8 +316,8 @@ socket.on('state', (state) => {
   questionDisplay.classList.toggle('invisible', phase === 'announce');
   updateQuestionReveal(questionDisplay, question, phase);
 
-  const me = players.find((p) => p.id === socket.id);
-  const isSelfBuzzed = buzzedId === socket.id;
+  const me = players.find((p) => p.id === clientId);
+  const isSelfBuzzed = buzzedId === clientId;
 
   // 解答の進捗（確定した文字）は全員に見せる。選択肢のボタンは早押しに勝った本人にだけ表示する。
   // 誤答した瞬間（wrong）・正解し終えた瞬間（correct）は、同じポップアップの中身を
@@ -286,7 +341,7 @@ socket.on('state', (state) => {
     correctResultLetter.textContent = revealedAnswer || '';
   }
   answerProgressText.textContent = answerProgress || '';
-  updateLetterCountdown(showProgress, (answerProgress || '').length, (answerProgress || '').length === 0);
+  updateLetterCountdown(showProgress, (answerProgress || '').length, !!isFirstLetterChoice);
 
   choicesContainer.classList.toggle('hidden', !showChoices);
   choiceButtons.forEach((btn, i) => {

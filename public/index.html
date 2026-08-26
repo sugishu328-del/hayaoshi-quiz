@@ -49,7 +49,7 @@
         <span id="answer-reveal-label" class="answer-reveal-label hidden"></span>
       </div>
 
-      <div id="status-banner" class="status-banner idle"></div>
+      <div id="status-banner" class="status-banner"></div>
 
       <button id="buzz-btn" class="buzz-btn" disabled>押す！</button>
     </div>
@@ -89,6 +89,16 @@
           <span class="correct-result-label">正解</span>
         </div>
         <div id="correct-result-letter" class="correct-result-letter"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="end-confirm-overlay" class="buzz-overlay hidden">
+    <div class="buzz-card end-confirm-card">
+      <p class="end-confirm-message">ゲームを終了しますか？</p>
+      <div class="end-confirm-actions">
+        <button id="end-confirm-cancel" class="end-confirm-cancel">キャンセル</button>
+        <button id="end-confirm-ok" class="end-confirm-ok">終了する</button>
       </div>
     </div>
   </div>

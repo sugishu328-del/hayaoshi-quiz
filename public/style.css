@@ -449,6 +449,39 @@ button:disabled {
   color: #1a1a2e;
 }
 
+/* 「終了」ボタンの誤タップ防止用の確認ポップアップ（buzz-cardと同じ見た目を使い回す）。 */
+.end-confirm-card {
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.end-confirm-message {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: #1a1a2e;
+}
+
+.end-confirm-actions {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+}
+
+.end-confirm-actions button {
+  flex: 1;
+}
+
+.end-confirm-cancel {
+  background: #c7cbdb;
+  color: #1a1a2e;
+}
+
+.end-confirm-ok {
+  background: #ff4d4d;
+}
+
 .answer-progress-row {
   display: flex;
   align-items: center;
