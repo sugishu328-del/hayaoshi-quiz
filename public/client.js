@@ -19,6 +19,61 @@ function getClientId() {
 }
 const clientId = getClientId();
 
+// ---- 効果音 ----
+// 音声ファイルを用意する代わりに、Web Audio APIでその場で電子音を鳴らす
+// （ファイルのホスティングや著作権を気にしなくてよく、読み込み待ちも発生しない）。
+// スマホのブラウザは「ユーザー操作なしの音声再生」をブロックするため、
+// AudioContextは最初のタップ（参加するボタン）で生成する。
+let audioCtx = null;
+
+function unlockAudio() {
+  if (audioCtx) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  audioCtx = new Ctx();
+}
+
+function playTone({ freq, duration, type = 'sine', volume = 0.25, delay = 0, endFreq = null }) {
+  if (!audioCtx) return;
+  const start = audioCtx.currentTime + delay;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, start);
+  if (endFreq !== null) {
+    osc.frequency.linearRampToValueAtTime(endFreq, start + duration);
+  }
+  gain.gain.setValueAtTime(volume, start);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(start);
+  osc.stop(start + duration);
+}
+
+// 押す：短く鋭いビープ音
+function playBuzzSound() {
+  playTone({ freq: 880, duration: 0.08, type: 'square', volume: 0.2 });
+}
+
+// 出題：新しい問題が出たことを知らせる2音の「ピンポン」
+function playAnnounceSound() {
+  playTone({ freq: 660, duration: 0.1, volume: 0.2 });
+  playTone({ freq: 880, duration: 0.12, volume: 0.2, delay: 0.1 });
+}
+
+// 正解：上昇する3音の明るいチャイム
+function playCorrectSound() {
+  playTone({ freq: 523, duration: 0.1, volume: 0.25 });
+  playTone({ freq: 659, duration: 0.1, volume: 0.25, delay: 0.1 });
+  playTone({ freq: 784, duration: 0.18, volume: 0.25, delay: 0.2 });
+}
+
+// 不正解：低く下降するブザー音
+function playWrongSound() {
+  playTone({ freq: 300, endFreq: 130, duration: 0.28, type: 'sawtooth', volume: 0.2 });
+}
+
 const joinScreen = document.getElementById('join-screen');
 const gameScreen = document.getElementById('game-screen');
 const nameInput = document.getElementById('name-input');
@@ -47,6 +102,7 @@ joinBtn.addEventListener('click', () => {
     nameInput.focus();
     return;
   }
+  unlockAudio();
   doJoin(name);
   joinScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
@@ -118,6 +174,7 @@ const correctResult = document.getElementById('correct-result');
 const correctResultLetter = document.getElementById('correct-result-letter');
 
 buzzBtn.addEventListener('click', () => {
+  playBuzzSound();
   socket.emit('player:buzz');
 });
 
@@ -266,6 +323,7 @@ function updateQuestionReveal(el, text, phase) {
 let currentPhase = null;
 let currentNoBuzzDeadline = null;
 let latestRevealedAnswer = null;
+let lastSfxPhase = null; // 出題・正解・不正解の効果音を、フェーズが切り替わった瞬間だけ鳴らすための直前値
 
 function tickNoBuzzCountdown() {
   if (currentPhase !== 'open' || !currentNoBuzzDeadline) return;
@@ -313,6 +371,15 @@ socket.on('state', (state) => {
 
   currentPhase = started ? phase : null;
   currentNoBuzzDeadline = noBuzzDeadline;
+
+  // フェーズが切り替わった瞬間にだけ効果音を鳴らす（同じフェーズ中に他の理由で
+  // stateが再送されても連打で鳴ってしまわないように、直前のフェーズと比較する）。
+  if (currentPhase !== lastSfxPhase) {
+    if (currentPhase === 'announce') playAnnounceSound();
+    else if (currentPhase === 'correct') playCorrectSound();
+    else if (currentPhase === 'wrong') playWrongSound();
+  }
+  lastSfxPhase = currentPhase;
 
   // 押した人への反応時間バッジは、その結果（○/✕）を表示している間だけ見せる。
   const showReactionFor = (phase === 'buzzed' || phase === 'wrong' || phase === 'correct') ? lastBuzzerId : null;
