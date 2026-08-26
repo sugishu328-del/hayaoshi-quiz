@@ -139,9 +139,9 @@ button:disabled {
 .player-list li {
   flex: 0 0 auto;
   width: 80px;
-  /* 高さを固定し、反応時間バッジの表示・非表示や枠線の太さの違い(buzzed)で
-     カードの高さが変わって参加者バー全体がガタつかないようにする。 */
-  height: 92px;
+  /* 高さはコンテンツに合わせた自然な高さのまま。反応時間バッジはposition:absoluteで
+     レイアウトから切り離してあるので、表示・非表示でこの高さが変わることはない
+     （高さを固定すると逆にflexの縮小で名前・得点が潰れて見えなくなってしまう）。 */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -168,6 +168,7 @@ button:disabled {
 }
 
 .player-name {
+  flex-shrink: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -178,6 +179,7 @@ button:disabled {
 }
 
 .player-score {
+  flex-shrink: 0;
   font-size: 0.8rem;
   font-weight: bold;
   color: #555a6e;
@@ -556,6 +558,12 @@ button:disabled {
 
 .answer-progress-text {
   flex: 1;
+  /* まだ何も確定していない（空文字）ときは中身が空のためこの行の高さが0になり、
+     1文字でも確定した瞬間に行の高さが急に増えてポップアップ全体がガタつく。
+     line-heightを明示し、それと同じ値のmin-heightを与えることで、文字が
+     入っていないときも1行分の高さを常に確保しておく。 */
+  line-height: 1.6;
+  min-height: 1.6em;
   font-size: 1.1rem;
   font-weight: bold;
   letter-spacing: 0.1em;
