@@ -233,18 +233,19 @@ button:disabled {
 
 .difficulty-btns {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .difficulty-btn {
   flex: 1;
-  padding: 10px 4px;
+  padding: 10px 2px;
   border-radius: 10px;
   border: 2px solid #c7cbdb;
   background: #ffffff;
   color: #555a6e;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
 
 /* 「（かんたん）」等の括弧書き部分は、途中の中途半端な位置で改行されないように
