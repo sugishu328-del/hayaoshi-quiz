@@ -50,13 +50,17 @@ const questionNumberEl = document.getElementById('question-number');
 const questionDisplay = document.getElementById('question-display');
 const letterTimerEl = document.getElementById('letter-timer');
 
-// 誰かが解答中（buzzedフェーズ）は、問題文の上に半透明の背景つきポップアップで表示する。
+// 誰かが解答中（buzzed）、または誤答直後（wrong）は、問題文の上に
+// 半透明の背景つきポップアップで表示する。
 const buzzOverlay = document.getElementById('buzz-overlay');
+const buzzLive = document.getElementById('buzz-live');
 const buzzAvatar = document.getElementById('buzz-avatar');
 const buzzCardStatus = document.getElementById('buzz-card-status');
 const choicesContainer = document.getElementById('choices');
 const choiceButtons = document.querySelectorAll('.choice-btn');
 const answerProgressText = document.getElementById('answer-progress-text');
+const wrongResult = document.getElementById('wrong-result');
+const wrongResultLetter = document.getElementById('wrong-result-letter');
 
 buzzBtn.addEventListener('click', () => {
   socket.emit('player:buzz');
@@ -198,6 +202,7 @@ socket.on('state', (state) => {
     letterChoices,
     revealedAnswer,
     noBuzzDeadline,
+    wrongLetterChoice,
     buzzedId,
     buzzedName,
     players,
@@ -229,12 +234,19 @@ socket.on('state', (state) => {
   const isSelfBuzzed = buzzedId === socket.id;
 
   // 解答の進捗（確定した文字）は全員に見せる。選択肢のボタンは早押しに勝った本人にだけ表示する。
+  // 誤答した瞬間（wrong）は、同じポップアップの中身を「✕不正解」表示に切り替える。
   const showProgress = phase === 'buzzed';
+  const showWrong = phase === 'wrong';
   const showChoices = phase === 'buzzed' && isSelfBuzzed && letterChoices && letterChoices.length > 0;
-  buzzOverlay.classList.toggle('hidden', !showProgress);
+  buzzOverlay.classList.toggle('hidden', !showProgress && !showWrong);
+  buzzLive.classList.toggle('hidden', !showProgress);
+  wrongResult.classList.toggle('hidden', !showWrong);
   if (showProgress) {
     buzzAvatar.textContent = (buzzedName || '?').slice(0, 1);
     buzzCardStatus.textContent = isSelfBuzzed ? 'あなたが解答中…' : `${buzzedName} が解答中…`;
+  }
+  if (showWrong) {
+    wrongResultLetter.textContent = wrongLetterChoice || '';
   }
   answerProgressText.textContent = answerProgress || '';
   updateLetterCountdown(showProgress, (answerProgress || '').length, (answerProgress || '').length === 0);

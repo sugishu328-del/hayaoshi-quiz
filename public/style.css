@@ -327,10 +327,49 @@ button:disabled {
   gap: 12px;
 }
 
+.buzz-live {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .buzz-card-header {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* 誤答した瞬間、同じカードの中身をこちらに切り替えて表示する。 */
+.wrong-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.wrong-result-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wrong-result-icon {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #d1453a;
+}
+
+.wrong-result-label {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #1a1a2e;
+}
+
+.wrong-result-letter {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #555a6e;
 }
 
 .buzz-avatar {

@@ -100,7 +100,7 @@ const CPU_ACCURACY = { A: 0.3, B: 0.6, C: 0.9 }; // A=むずかしい, C=かん�
 const players = new Map(); // socketId -> { name, score }
 let started = false;
 let difficulty = 'A';
-let phase = 'open'; // announce | open | buzzed | reveal（started=falseの間は未使用）
+let phase = 'open'; // announce | open | buzzed | wrong | reveal（started=falseの間は未使用）
 let question = '';
 let questionNumber = 0; // 何問目か（game:startで1から始まる）
 let answer = ''; // サーバー内部のみで保持し、reveal時にrevealedAnswerとして公開する
@@ -111,6 +111,7 @@ let buzzedId = null;
 let noBuzzDeadline = null; // 「誰も押さないまま自動で正解発表になる」時刻（クライアントのカウントダウン表示用）
 let questionRevealedMs = 0; // この問題文がこれまでに表示され進んだ合計時間（誤答で中断された分は除く）
 let questionTypingStartedAt = null; // 直近でopenフェーズに入った（表示が再開した）時刻
+let wrongLetterChoice = null; // 直前に誤答した文字（「✕不正解」表示用。タイムアウト時はnull）
 const lockedOut = new Set(); // この問題で誤答済みのplayerId
 
 let cpuTimer = null;
@@ -118,6 +119,7 @@ let cpuLetterTimer = null;
 let noBuzzTimer = null;
 let letterTimer = null;
 let advanceTimer = null;
+let wrongTimer = null;
 let cpuWillSucceed = true;
 let cpuMistakeAt = -1; // 何文字目（ガード対象文字のうち何番目）でわざと間違えるか
 let cpuStepIndex = 0;
@@ -129,6 +131,7 @@ const FIRST_LETTER_TIMEOUT_MS = 5000; // 早押し直後、1文字目だけの�
 const LETTER_TIMEOUT_MS = 3000; // 2文字目以降、選ばないまま経過したら誤答扱い
 const REVEAL_DELAY_MS = 3000; // 正解発表を表示しておく時間
 const ANNOUNCE_DELAY_MS = 1500; // 「第N問」だけを表示しておく時間
+const WRONG_ANSWER_DELAY_MS = 1500; // 文字を選んで誤答したときに「✕不正解」を表示しておく時間
 
 function cancelCpuTimer() { if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; } }
 function cancelCpuLetterTimer() { if (cpuLetterTimer) { clearTimeout(cpuLetterTimer); cpuLetterTimer = null; } }
@@ -145,12 +148,14 @@ function pauseQuestionTyping() {
 }
 function cancelLetterTimer() { if (letterTimer) { clearTimeout(letterTimer); letterTimer = null; } }
 function cancelAdvanceTimer() { if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; } }
+function cancelWrongTimer() { if (wrongTimer) { clearTimeout(wrongTimer); wrongTimer = null; } }
 function cancelAllTimers() {
   cancelCpuTimer();
   cancelCpuLetterTimer();
   cancelNoBuzzTimer();
   cancelLetterTimer();
   cancelAdvanceTimer();
+  cancelWrongTimer();
 }
 
 function publicPlayers() {
@@ -172,6 +177,7 @@ function broadcastState() {
     questionNumber,
     revealedAnswer,
     noBuzzDeadline,
+    wrongLetterChoice,
     buzzedId,
     buzzedName: buzzedId ? players.get(buzzedId)?.name : null,
     players: publicPlayers(),
@@ -248,7 +254,7 @@ function resolveLetterChoice(choice) {
     resolvedCount++;
     advanceLetterOrFinish();
   } else {
-    resolveWrong();
+    resolveWrong(choice);
   }
 }
 
@@ -292,13 +298,32 @@ function scheduleCpuLetterPick() {
   }, thinkDelay);
 }
 
-function resolveWrong() {
+// choiceを渡した場合（文字を選んでの誤答）は「✕不正解」をWRONG_ANSWER_DELAY_MSだけ
+// 表示してから次に進む。タイムアウト（何も選ばず時間切れ）の場合はchoiceを渡さず、
+// これまで通り即座に次へ進む。
+function resolveWrong(choice) {
   cancelLetterTimer();
   cancelCpuLetterTimer();
   if (buzzedId) lockedOut.add(buzzedId);
   buzzedId = null;
   resolvedCount = 0;
   letterChoices = [];
+
+  if (choice) {
+    wrongLetterChoice = choice;
+    phase = 'wrong';
+    broadcastState();
+    wrongTimer = setTimeout(() => {
+      wrongTimer = null;
+      proceedAfterWrong();
+    }, WRONG_ANSWER_DELAY_MS);
+  } else {
+    proceedAfterWrong();
+  }
+}
+
+function proceedAfterWrong() {
+  wrongLetterChoice = null;
   if (lockedOut.size >= players.size) {
     enterReveal();
   } else {
@@ -334,6 +359,7 @@ function drawAndOpenNextQuestion() {
   letterChoices = [];
   revealedAnswer = '';
   buzzedId = null;
+  wrongLetterChoice = null;
   questionRevealedMs = 0;
   questionTypingStartedAt = null;
   lockedOut.clear();
@@ -392,6 +418,7 @@ io.on('connection', (socket) => {
     letterChoices = [];
     revealedAnswer = '';
     buzzedId = null;
+    wrongLetterChoice = null;
     questionRevealedMs = 0;
     questionTypingStartedAt = null;
     lockedOut.clear();

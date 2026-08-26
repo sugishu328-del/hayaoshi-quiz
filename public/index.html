@@ -57,20 +57,30 @@
 
   <div id="buzz-overlay" class="buzz-overlay hidden">
     <div class="buzz-card">
-      <div class="buzz-card-header">
-        <span id="buzz-avatar" class="buzz-avatar"></span>
-        <span id="buzz-card-status" class="buzz-card-status"></span>
-        <span id="letter-timer" class="letter-timer"></span>
+      <div id="buzz-live" class="buzz-live">
+        <div class="buzz-card-header">
+          <span id="buzz-avatar" class="buzz-avatar"></span>
+          <span id="buzz-card-status" class="buzz-card-status"></span>
+          <span id="letter-timer" class="letter-timer"></span>
+        </div>
+        <div class="answer-progress-row">
+          <span class="answer-progress-label">解答</span>
+          <span id="answer-progress-text" class="answer-progress-text"></span>
+        </div>
+        <div id="choices" class="choices hidden">
+          <button class="choice-btn" data-index="0"></button>
+          <button class="choice-btn" data-index="1"></button>
+          <button class="choice-btn" data-index="2"></button>
+          <button class="choice-btn" data-index="3"></button>
+        </div>
       </div>
-      <div class="answer-progress-row">
-        <span class="answer-progress-label">解答</span>
-        <span id="answer-progress-text" class="answer-progress-text"></span>
-      </div>
-      <div id="choices" class="choices hidden">
-        <button class="choice-btn" data-index="0"></button>
-        <button class="choice-btn" data-index="1"></button>
-        <button class="choice-btn" data-index="2"></button>
-        <button class="choice-btn" data-index="3"></button>
+
+      <div id="wrong-result" class="wrong-result hidden">
+        <div class="wrong-result-badge">
+          <span class="wrong-result-icon">✕</span>
+          <span class="wrong-result-label">不正解</span>
+        </div>
+        <div id="wrong-result-letter" class="wrong-result-letter"></div>
       </div>
     </div>
   </div>
