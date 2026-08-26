@@ -20,59 +20,34 @@ function getClientId() {
 const clientId = getClientId();
 
 // ---- 効果音 ----
-// 音声ファイルを用意する代わりに、Web Audio APIでその場で電子音を鳴らす
-// （ファイルのホスティングや著作権を気にしなくてよく、読み込み待ちも発生しない）。
-// スマホのブラウザは「ユーザー操作なしの音声再生」をブロックするため、
-// AudioContextは最初のタップ（参加するボタン）で生成する。
-let audioCtx = null;
+// public/sounds/ に置いた音声ファイルを鳴らす。スマホのブラウザは「ユーザー操作なしの
+// 音声再生」をブロックするため、最初のタップ（参加するボタン）で一度無音再生しておく
+// ことで、以降はコードから自由にplay()できるようにする（アンロック）。
+const sfxBuzz = new Audio('sounds/buzz.mp3');
+const sfxAnnounce = new Audio('sounds/announce.mp3');
+const sfxCorrect = new Audio('sounds/correct.mp3');
+const sfxWrong = new Audio('sounds/wrong.mp3');
+const allSfx = [sfxBuzz, sfxAnnounce, sfxCorrect, sfxWrong];
+allSfx.forEach((a) => { a.preload = 'auto'; });
 
 function unlockAudio() {
-  if (audioCtx) return;
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return;
-  audioCtx = new Ctx();
+  allSfx.forEach((a) => {
+    a.play().then(() => {
+      a.pause();
+      a.currentTime = 0;
+    }).catch(() => {});
+  });
 }
 
-function playTone({ freq, duration, type = 'sine', volume = 0.25, delay = 0, endFreq = null }) {
-  if (!audioCtx) return;
-  const start = audioCtx.currentTime + delay;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, start);
-  if (endFreq !== null) {
-    osc.frequency.linearRampToValueAtTime(endFreq, start + duration);
-  }
-  gain.gain.setValueAtTime(volume, start);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start(start);
-  osc.stop(start + duration);
+function playSfx(audio) {
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
 }
 
-// 押す：短く鋭いビープ音
-function playBuzzSound() {
-  playTone({ freq: 880, duration: 0.08, type: 'square', volume: 0.2 });
-}
-
-// 出題：新しい問題が出たことを知らせる2音の「ピンポン」
-function playAnnounceSound() {
-  playTone({ freq: 660, duration: 0.1, volume: 0.2 });
-  playTone({ freq: 880, duration: 0.12, volume: 0.2, delay: 0.1 });
-}
-
-// 正解：上昇する3音の明るいチャイム
-function playCorrectSound() {
-  playTone({ freq: 523, duration: 0.1, volume: 0.25 });
-  playTone({ freq: 659, duration: 0.1, volume: 0.25, delay: 0.1 });
-  playTone({ freq: 784, duration: 0.18, volume: 0.25, delay: 0.2 });
-}
-
-// 不正解：低く下降するブザー音
-function playWrongSound() {
-  playTone({ freq: 300, endFreq: 130, duration: 0.28, type: 'sawtooth', volume: 0.2 });
-}
+function playBuzzSound() { playSfx(sfxBuzz); }
+function playAnnounceSound() { playSfx(sfxAnnounce); }
+function playCorrectSound() { playSfx(sfxCorrect); }
+function playWrongSound() { playSfx(sfxWrong); }
 
 const joinScreen = document.getElementById('join-screen');
 const gameScreen = document.getElementById('game-screen');
