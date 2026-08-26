@@ -427,7 +427,7 @@ button:disabled {
 
 .buzz-card {
   width: 100%;
-  max-width: 300px;
+  max-width: 380px;
   /* 問題文が隠れないよう、画面中央からもう少し下に表示する */
   margin-top: 14vh;
   background: linear-gradient(180deg, #ffffff 0%, #f5f6fa 100%);
@@ -694,17 +694,18 @@ button:disabled {
   width: 100%;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 8px;
 }
 
 .choice-btn {
   background: #eef0f9;
   color: #1a1a2e;
   text-align: center;
-  font-size: 1.3rem;
+  font-size: 1.6rem;
   font-weight: bold;
   line-height: 1.2;
-  min-height: 44px;
+  min-height: 64px;
+  padding: 8px 4px;
   border: 2px solid #d8dae3;
 }
 
