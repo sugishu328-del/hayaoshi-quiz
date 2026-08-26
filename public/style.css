@@ -378,13 +378,13 @@ button:disabled {
 }
 
 .wrong-result-icon {
-  font-size: 6rem;
+  font-size: 5.2rem;
   font-weight: bold;
   color: #2b6fd1;
 }
 
 .wrong-result-label {
-  font-size: 5rem;
+  font-size: 4.3rem;
   font-weight: bold;
   color: #2b6fd1;
 }
@@ -413,13 +413,13 @@ button:disabled {
 }
 
 .correct-result-icon {
-  font-size: 6rem;
+  font-size: 5.2rem;
   font-weight: bold;
   color: #d1453a;
 }
 
 .correct-result-label {
-  font-size: 5rem;
+  font-size: 4.3rem;
   font-weight: bold;
   color: #d1453a;
 }
