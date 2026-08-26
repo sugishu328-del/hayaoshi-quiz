@@ -175,6 +175,7 @@ let cpuStepIndex = 0;
 let isFirstLetterPick = true; // 早押し後、最初の1文字目だけ制限時間を長くする
 
 const TYPEWRITER_SPEED_MS = 140; // client.jsの問題文タイプライター表示と同じ速さ（表示完了タイミングの計算に使う）
+const CORRECT_REVEAL_SPEED_MS = 70; // 正解後、残りの問題文を続きから表示するときの速さ（client.jsと同じ値）
 const NO_BUZZ_TIMEOUT_MS = 5000; // 問題文が表示され終わってから、誰も押さないまま経過したら諦めて次の問題へ
 const FIRST_LETTER_TIMEOUT_MS = 5000; // 早押し直後、1文字目だけの制限時間
 const LETTER_TIMEOUT_MS = 3000; // 2文字目以降、選ばないまま経過したら誤答扱い
@@ -302,8 +303,8 @@ function advanceLetterOrFinish() {
 }
 
 // 正解し終わったら「○正解」をCORRECT_ANSWER_DELAY_MSだけ表示し、その後
-// 残りの問題文＋A.答えをPOST_CORRECT_REVEAL_DELAY_MSだけ表示してから次の問題へ
-// （見た目はenterReveal()と同じ'reveal'フェーズを使い回すが、表示時間だけ異なる）。
+// 残りの問題文を（誤答で止まっていた続きから）CORRECT_REVEAL_SPEED_MSで表示しきってから
+// さらにPOST_CORRECT_REVEAL_DELAY_MSだけ間を置いて次の問題へ（'correctReveal'フェーズ）。
 function finishCorrectAnswer() {
   cancelAllTimers();
   const p = players.get(buzzedId);
@@ -317,13 +318,16 @@ function finishCorrectAnswer() {
   correctTimer = setTimeout(() => {
     correctTimer = null;
     if (!started) return;
-    phase = 'reveal';
+    phase = 'correctReveal';
     broadcastState();
+    const alreadyShownChars = Math.round(questionRevealedMs / TYPEWRITER_SPEED_MS);
+    const remainingChars = Math.max(0, question.length - alreadyShownChars);
+    const fastTypingMs = remainingChars * CORRECT_REVEAL_SPEED_MS;
     advanceTimer = setTimeout(() => {
       advanceTimer = null;
       if (!started) return;
       drawAndOpenNextQuestion();
-    }, POST_CORRECT_REVEAL_DELAY_MS);
+    }, fastTypingMs + POST_CORRECT_REVEAL_DELAY_MS);
   }, CORRECT_ANSWER_DELAY_MS);
 }
 

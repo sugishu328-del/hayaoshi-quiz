@@ -135,10 +135,12 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
 }
 
 const TYPEWRITER_SPEED_MS = 140;
+const CORRECT_REVEAL_SPEED_MS = 70; // 正解後、残りの問題文を続きから表示するときの速さ（出題時より速い）
 const revealState = { text: null, index: 0, timer: null };
 
 // 早押しクイズなので問題文を1文字ずつ表示する。誰かが押している間は表示を止め、
-// 誤答でopenに戻ったら続きから再開する。正解して発表(reveal)に入ったら全文を表示する。
+// 誤答でopenに戻ったら続きから再開する。正解後(correctReveal)も続きから、出題時より速く表示する。
+// 誰も正解しなかった場合の発表(reveal)だけは全文を即表示する。
 function updateQuestionReveal(el, text, phase) {
   if (text !== revealState.text) {
     if (revealState.timer) clearInterval(revealState.timer);
@@ -161,7 +163,7 @@ function updateQuestionReveal(el, text, phase) {
     return;
   }
 
-  if (phase !== 'open') {
+  if (phase !== 'open' && phase !== 'correctReveal') {
     if (revealState.timer) {
       clearInterval(revealState.timer);
       revealState.timer = null;
@@ -172,6 +174,7 @@ function updateQuestionReveal(el, text, phase) {
 
   if (revealState.index >= revealState.text.length || revealState.timer) return;
 
+  const speed = phase === 'correctReveal' ? CORRECT_REVEAL_SPEED_MS : TYPEWRITER_SPEED_MS;
   el.classList.add('revealing');
   revealState.timer = setInterval(() => {
     revealState.index++;
@@ -181,7 +184,7 @@ function updateQuestionReveal(el, text, phase) {
       revealState.timer = null;
       el.classList.remove('revealing');
     }
-  }, TYPEWRITER_SPEED_MS);
+  }, speed);
 }
 
 // 問題文の表示が終わったのに誰も押さないままだと、サーバーが一定時間後に
@@ -279,7 +282,7 @@ socket.on('state', (state) => {
 
   // 正解発表時は、問題文の枠の右下に「A.答え」を重ねて表示する。
   answerRevealLabel.textContent = `A.${revealedAnswer}`;
-  answerRevealLabel.classList.toggle('hidden', phase !== 'reveal');
+  answerRevealLabel.classList.toggle('hidden', phase !== 'reveal' && phase !== 'correctReveal');
 
   statusBanner.classList.add('invisible');
   buzzBtn.disabled = phase !== 'open' || !me || me.locked;
