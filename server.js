@@ -181,6 +181,7 @@ const LETTER_TIMEOUT_MS = 3000; // 2文字目以降、選ばないまま経過�
 const REVEAL_DELAY_MS = 3000; // 正解発表を表示しておく時間
 const ANNOUNCE_DELAY_MS = 1500; // 「第N問」だけを表示しておく時間
 const WRONG_ANSWER_DELAY_MS = 1500; // 文字を選んで誤答したときに「✕不正解」を表示しておく時間
+const POST_CORRECT_REVEAL_DELAY_MS = 2000; // 「○正解」の後、残りの問題文＋A.答えを表示しておく時間
 const CORRECT_ANSWER_DELAY_MS = 1500; // 正解し終わったときに「○正解」を表示しておく時間
 
 function cancelCpuTimer() { if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; } }
@@ -300,8 +301,9 @@ function advanceLetterOrFinish() {
   if (buzzedId === CPU_ID) scheduleCpuLetterPick();
 }
 
-// 正解し終わったら「○正解」＋答えをCORRECT_ANSWER_DELAY_MSだけ表示してから次の問題へ。
-// （誰も正解しなかった場合のenterReveal()とは別の、専用の一本道フロー）
+// 正解し終わったら「○正解」をCORRECT_ANSWER_DELAY_MSだけ表示し、その後
+// 残りの問題文＋A.答えをPOST_CORRECT_REVEAL_DELAY_MSだけ表示してから次の問題へ
+// （見た目はenterReveal()と同じ'reveal'フェーズを使い回すが、表示時間だけ異なる）。
 function finishCorrectAnswer() {
   cancelAllTimers();
   const p = players.get(buzzedId);
@@ -315,7 +317,13 @@ function finishCorrectAnswer() {
   correctTimer = setTimeout(() => {
     correctTimer = null;
     if (!started) return;
-    drawAndOpenNextQuestion();
+    phase = 'reveal';
+    broadcastState();
+    advanceTimer = setTimeout(() => {
+      advanceTimer = null;
+      if (!started) return;
+      drawAndOpenNextQuestion();
+    }, POST_CORRECT_REVEAL_DELAY_MS);
   }, CORRECT_ANSWER_DELAY_MS);
 }
 
