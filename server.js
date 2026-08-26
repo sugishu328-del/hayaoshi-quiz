@@ -39,19 +39,6 @@ function drawNextQuestion(difficulty) {
   return bank[idx];
 }
 
-// picked.shortAnswer（「ここまで打てば正解」の短縮文字列）が有効かを確認し、
-// 有効ならその文字数を返す。answerの厳密な接頭辞でなければ無視して null を返す
-// （letter-by-letterの仕組み上、shortAnswerはanswerの先頭一致でなければ整合が取れないため）。
-function resolveShortAnswerLength(picked) {
-  const shortAnswer = picked.shortAnswer;
-  if (typeof shortAnswer !== 'string' || shortAnswer.length === 0) return null;
-  if (!picked.answer.startsWith(shortAnswer) || shortAnswer.length >= picked.answer.length) {
-    console.error(`questions.json: shortAnswerが不正なため無視します（question: "${picked.question}"）`);
-    return null;
-  }
-  return shortAnswer.length;
-}
-
 function shuffleArray(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -85,9 +72,13 @@ function buildCharPools() {
   const seen = { digit: new Set(), latin: new Set(), hiragana: new Set(), katakana: new Set(), kanji: new Set() };
   for (const d of DIFFICULTIES) {
     for (const item of questionBanks[d]) {
-      for (const ch of item.answer) {
-        if (SKIP_CHARS.has(ch)) continue;
-        seen[classifyChar(ch)].add(ch);
+      const strings = [item.input, ...(item.distractors || []).map((dd) => dd.input)];
+      for (const s of strings) {
+        if (typeof s !== 'string') continue;
+        for (const ch of s) {
+          if (SKIP_CHARS.has(ch)) continue;
+          seen[classifyChar(ch)].add(ch);
+        }
       }
     }
   }
@@ -117,7 +108,7 @@ function buildFirstLetterChoices(correctChar, distractors) {
   const candidates = [correctChar];
   for (const d of distractors || []) {
     if (candidates.length >= 4) break;
-    const firstChar = d ? d[0] : null;
+    const firstChar = d && typeof d.input === 'string' ? d.input[0] : null;
     if (firstChar && !candidates.includes(firstChar)) candidates.push(firstChar);
   }
   if (candidates.length < 4) {
@@ -161,9 +152,9 @@ let difficulty = 'B';
 let phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
 let question = '';
 let questionNumber = 0; // 何問目か（game:startで1から始まる）
-let answer = ''; // サーバー内部のみで保持し、reveal時にrevealedAnswerとして公開する
-let currentDistractors = []; // 現在の問題のもっともらしい誤答（1文字目の選択肢作りに使う）
-let currentShortAnswerLength = null; // ここまで打てば正解、という短縮文字数（未設定ならnull＝全文入力が必要）
+let answer = ''; // 実際に1文字ずつ入力させて正誤判定する文字列（questions.jsonのinput。漢字の読みや短縮形）
+let displayAnswer = ''; // 「○正解」「A.答え」に表示する文字列（questions.jsonのanswer。漢字そのまま）
+let currentDistractors = []; // 現在の問題のもっともらしい誤答（1文字目の選択肢作りに使う。{name, input}の配列）
 let resolvedCount = 0; // answerの先頭から何文字確定したか（スキップ文字も含む）
 let letterChoices = []; // 現在の文字位置の4択
 let revealedAnswer = '';
@@ -304,10 +295,6 @@ function advanceLetterOrFinish() {
   while (resolvedCount < answer.length && SKIP_CHARS.has(answer[resolvedCount])) {
     resolvedCount++;
   }
-  if (currentShortAnswerLength !== null && resolvedCount >= currentShortAnswerLength) {
-    finishCorrectAnswer();
-    return;
-  }
   if (resolvedCount >= answer.length) {
     finishCorrectAnswer();
     return;
@@ -331,7 +318,7 @@ function finishCorrectAnswer() {
   cancelAllTimers();
   const p = players.get(buzzedId);
   if (p) p.score += 1;
-  revealedAnswer = answer;
+  revealedAnswer = displayAnswer;
   buzzedId = null;
   resolvedCount = 0;
   letterChoices = [];
@@ -385,10 +372,7 @@ function scheduleCpuBuzzIfNeeded() {
     isFirstLetterPick = true;
     cpuStepIndex = 0;
     cpuWillSucceed = Math.random() < (CPU_ACCURACY[difficulty] ?? 0.5);
-    // shortAnswerが設定されている問題では、そこまで打てば正解確定してしまうので、
-    // わざと間違える位置もその範囲内でしか選ばないようにする（範囲外だと発現しないミスになる）。
-    const effectiveLength = currentShortAnswerLength !== null ? currentShortAnswerLength : answer.length;
-    const guessableCount = countGuessableChars(answer.slice(0, effectiveLength));
+    const guessableCount = countGuessableChars(answer);
     cpuMistakeAt = cpuWillSucceed ? -1 : Math.floor(Math.random() * Math.max(guessableCount, 1));
     phase = 'buzzed';
     advanceLetterOrFinish();
@@ -447,7 +431,7 @@ function proceedAfterWrong() {
 function enterReveal() {
   cancelAllTimers();
   phase = 'reveal';
-  revealedAnswer = answer;
+  revealedAnswer = displayAnswer;
   buzzedId = null;
   resolvedCount = 0;
   letterChoices = [];
@@ -464,9 +448,9 @@ function drawAndOpenNextQuestion() {
   const picked = drawNextQuestion(difficulty);
   question = picked ? picked.question : '';
   questionNumber++;
-  answer = picked ? picked.answer : '';
+  answer = picked ? picked.input : '';
+  displayAnswer = picked ? picked.answer : '';
   currentDistractors = picked && Array.isArray(picked.distractors) ? picked.distractors : [];
-  currentShortAnswerLength = picked ? resolveShortAnswerLength(picked) : null;
   resolvedCount = 0;
   letterChoices = [];
   revealedAnswer = '';
@@ -550,8 +534,8 @@ io.on('connection', (socket) => {
     question = '';
     questionNumber = 0;
     answer = '';
+    displayAnswer = '';
     currentDistractors = [];
-    currentShortAnswerLength = null;
     resolvedCount = 0;
     letterChoices = [];
     revealedAnswer = '';
