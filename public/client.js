@@ -32,10 +32,16 @@ allSfx.forEach((a) => { a.preload = 'auto'; });
 
 function unlockAudio() {
   allSfx.forEach((a) => {
+    // 解錠のための再生が実際に聞こえてしまわないよう、一瞬だけ音量を0にする
+    const originalVolume = a.volume;
+    a.volume = 0;
     a.play().then(() => {
       a.pause();
       a.currentTime = 0;
-    }).catch(() => {});
+      a.volume = originalVolume;
+    }).catch(() => {
+      a.volume = originalVolume;
+    });
   });
 }
 
