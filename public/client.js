@@ -373,6 +373,7 @@ socket.on('state', (state) => {
     revealedAnswer,
     noBuzzDeadline,
     wrongLetterChoice,
+    wrongTimedOut,
     lastBuzzerId,
     lastBuzzerReactionMs,
     isFirstLetterChoice,
@@ -394,6 +395,9 @@ socket.on('state', (state) => {
     if (currentPhase === 'announce') playAnnounceSound();
     else if (currentPhase === 'correct') playCorrectSound();
     else if (currentPhase === 'wrong') playWrongSound();
+    // 自分が押したときは押した瞬間（buzzBtnのクリック）に既に鳴らしているので、
+    // ここで鳴らすのは他の人（CPU含む）が押したのを知らせる分だけでよい。
+    else if (currentPhase === 'buzzed' && buzzedId !== clientId) playBuzzSound();
   }
   lastSfxPhase = currentPhase;
 
@@ -441,7 +445,7 @@ socket.on('state', (state) => {
     buzzCardStatus.textContent = isSelfBuzzed ? 'あなたが解答中…' : `${buzzedName} が解答中…`;
   }
   if (showWrong) {
-    wrongResultLetter.textContent = wrongLetterChoice || '';
+    wrongResultLetter.textContent = wrongTimedOut ? '時間切れ' : (wrongLetterChoice || '');
   }
   if (showCorrect) {
     correctResultLetter.textContent = revealedAnswer || '';

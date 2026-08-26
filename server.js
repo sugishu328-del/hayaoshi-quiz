@@ -172,7 +172,8 @@ let noBuzzDeadline = null; // 「誰も押さないまま自動で正解発表�
 let questionRevealedMs = 0; // この問題文がこれまでに表示され進んだ合計時間（誤答で中断された分は除く）
 let questionTypingStartedAt = null; // 直近でopenフェーズに入った（表示が再開した）時刻
 let questionOpenedAt = null; // この問題が最初にopenになった時刻（誤答での中断・再開では変わらない。反応時間の計測用）
-let wrongLetterChoice = null; // 直前に誤答した文字（「✕不正解」表示用。タイムアウト時はnull）
+let wrongLetterChoice = null; // 直前の誤答までに選んでいた文字（「✕不正解」表示用）
+let wrongTimedOut = false; // 直前の誤答が「文字を選んでの誤答」ではなく「時間切れ」だったか
 let lastBuzzerId = null; // 直近に押した人（「○正解」「✕不正解」表示中はbuzzedIdがnullになるので別途保持）
 let lastBuzzerReactionMs = null; // 問題文表示開始から押すまでにかかった時間（参加者バーの表示用）
 const lockedOut = new Set(); // この問題で誤答済みのplayerId
@@ -246,6 +247,7 @@ function broadcastState() {
     revealedAnswer,
     noBuzzDeadline,
     wrongLetterChoice,
+    wrongTimedOut,
     buzzedId,
     buzzedName: buzzedId ? players.get(buzzedId)?.name : null,
     lastBuzzerId,
@@ -407,36 +409,31 @@ function scheduleCpuLetterPick() {
   }, thinkDelay);
 }
 
-// choiceを渡した場合（文字を選んでの誤答）は「✕不正解」をWRONG_ANSWER_DELAY_MSだけ
-// 表示してから次に進む。タイムアウト（何も選ばず時間切れ）の場合はchoiceを渡さず、
-// これまで通り即座に次へ進む。
+// choiceを渡した場合（文字を選んでの誤答）は、それまで選んだ文字に今回誤答した1文字を
+// つなげて見せる。タイムアウト（何も選ばず時間切れ）の場合はchoiceを渡さず、それまで
+// 選んでいた文字だけを見せる。どちらの場合も「✕不正解」をWRONG_ANSWER_DELAY_MSだけ
+// 表示・音を鳴らしてから次に進む。
 function resolveWrong(choice) {
   cancelLetterTimer();
   cancelCpuLetterTimer();
   if (buzzedId) lockedOut.add(buzzedId);
   buzzedId = null;
 
-  if (choice) {
-    // 「✕不正解」には、今回の解答でここまで選んだ文字を全部つなげて見せる
-    // （それまで正解していた分＝answerの確定済み部分 + 今回誤答した1文字）。
-    wrongLetterChoice = answer.slice(0, resolvedCount) + choice;
-    resolvedCount = 0;
-    letterChoices = [];
-    phase = 'wrong';
-    broadcastState();
-    wrongTimer = setTimeout(() => {
-      wrongTimer = null;
-      proceedAfterWrong();
-    }, WRONG_ANSWER_DELAY_MS);
-  } else {
-    resolvedCount = 0;
-    letterChoices = [];
+  wrongLetterChoice = answer.slice(0, resolvedCount) + (choice || '');
+  wrongTimedOut = !choice;
+  resolvedCount = 0;
+  letterChoices = [];
+  phase = 'wrong';
+  broadcastState();
+  wrongTimer = setTimeout(() => {
+    wrongTimer = null;
     proceedAfterWrong();
-  }
+  }, WRONG_ANSWER_DELAY_MS);
 }
 
 function proceedAfterWrong() {
   wrongLetterChoice = null;
+  wrongTimedOut = false;
   if (lockedOut.size >= connectedPlayerCount()) {
     enterReveal();
   } else {
@@ -475,6 +472,7 @@ function drawAndOpenNextQuestion() {
   revealedAnswer = '';
   buzzedId = null;
   wrongLetterChoice = null;
+  wrongTimedOut = false;
   lastBuzzerId = null;
   lastBuzzerReactionMs = null;
   questionRevealedMs = 0;
@@ -559,6 +557,7 @@ io.on('connection', (socket) => {
     revealedAnswer = '';
     buzzedId = null;
     wrongLetterChoice = null;
+    wrongTimedOut = false;
     lastBuzzerId = null;
     lastBuzzerReactionMs = null;
     questionRevealedMs = 0;
