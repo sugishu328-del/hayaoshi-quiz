@@ -88,6 +88,26 @@ function buildLetterChoices(correctChar) {
   return shuffleArray([correctChar, ...decoys]);
 }
 
+// 1文字目だけは、ランダムな同種文字ではなく「もっともらしい誤答（distractors）」の
+// 頭文字を選択肢にする。distractorsが足りない/重複する分は通常のプールで補う。
+function buildFirstLetterChoices(correctChar, distractors) {
+  const candidates = [correctChar];
+  for (const d of distractors || []) {
+    if (candidates.length >= 4) break;
+    const firstChar = d ? d[0] : null;
+    if (firstChar && !candidates.includes(firstChar)) candidates.push(firstChar);
+  }
+  if (candidates.length < 4) {
+    const cls = classifyChar(correctChar);
+    const pool = shuffleArray(charPools[cls].filter((c) => !candidates.includes(c)));
+    for (const c of pool) {
+      if (candidates.length >= 4) break;
+      candidates.push(c);
+    }
+  }
+  return shuffleArray(candidates);
+}
+
 function countGuessableChars(str) {
   return [...str].filter((ch) => !SKIP_CHARS.has(ch)).length;
 }
@@ -104,6 +124,7 @@ let phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（sta
 let question = '';
 let questionNumber = 0; // 何問目か（game:startで1から始まる）
 let answer = ''; // サーバー内部のみで保持し、reveal時にrevealedAnswerとして公開する
+let currentDistractors = []; // 現在の問題のもっともらしい誤答（1文字目の選択肢作りに使う）
 let resolvedCount = 0; // answerの先頭から何文字確定したか（スキップ文字も含む）
 let letterChoices = []; // 現在の文字位置の4択
 let revealedAnswer = '';
@@ -242,7 +263,9 @@ function advanceLetterOrFinish() {
     finishCorrectAnswer();
     return;
   }
-  letterChoices = buildLetterChoices(answer[resolvedCount]);
+  letterChoices = resolvedCount === 0
+    ? buildFirstLetterChoices(answer[resolvedCount], currentDistractors)
+    : buildLetterChoices(answer[resolvedCount]);
   broadcastState();
   scheduleLetterTimeout(isFirstLetterPick ? FIRST_LETTER_TIMEOUT_MS : LETTER_TIMEOUT_MS);
   isFirstLetterPick = false;
@@ -382,6 +405,7 @@ function drawAndOpenNextQuestion() {
   question = picked ? picked.question : '';
   questionNumber++;
   answer = picked ? picked.answer : '';
+  currentDistractors = picked && Array.isArray(picked.distractors) ? picked.distractors : [];
   resolvedCount = 0;
   letterChoices = [];
   revealedAnswer = '';
