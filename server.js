@@ -13,10 +13,33 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ---- 問題バンク（難易度A/B/C別、全問自動出題） ----
 const DIFFICULTIES = ['A', 'B', 'C'];
 let questionBanks = { A: [], B: [], C: [] };
+
+// 1問でも question/answer/input が空文字列や非文字列だったり、distractorsが不正な形
+// だったりすると、出題時にサーバー全体がクラッシュしてしまう（例えば undefined.length
+// のような例外は socket.io のイベントハンドラ内では捕捉されない）。今後この問題バンクが
+// 手編集で壊れても落ちないよう、読み込み時に1問ずつ形を検証し、壊れている問題だけを
+// 読み飛ばす（他の問題は影響を受けない）。
+function isValidQuestionEntry(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (typeof item.question !== 'string' || !item.question) return false;
+  if (typeof item.answer !== 'string' || !item.answer) return false;
+  if (typeof item.input !== 'string' || !item.input) return false;
+  if (!Array.isArray(item.distractors)) return false;
+  return item.distractors.every(
+    (d) => d && typeof d.name === 'string' && typeof d.input === 'string' && d.input
+  );
+}
+
 try {
   const loaded = JSON.parse(fs.readFileSync(path.join(__dirname, 'questions.json'), 'utf-8'));
   for (const d of DIFFICULTIES) {
-    questionBanks[d] = Array.isArray(loaded[d]) ? loaded[d] : [];
+    const rawList = Array.isArray(loaded[d]) ? loaded[d] : [];
+    const validList = rawList.filter((item, i) => {
+      const ok = isValidQuestionEntry(item);
+      if (!ok) console.error(`questions.json の ${d}[${i}] は形式が不正なため読み飛ばしました:`, item);
+      return ok;
+    });
+    questionBanks[d] = validList;
   }
 } catch (e) {
   console.error('questions.json の読み込みに失敗しました:', e.message);
@@ -480,7 +503,8 @@ io.on('connection', (socket) => {
   // clientIdはブラウザ（localStorage）に保存された永続的な識別子。名前ではなくこれで
   // 同一人物を判定するので、再接続（画面ロック・電波切れ等でのsocket再接続）してもスコアを
   // 引き継げる。socket.idは接続のたびに変わるため、識別には使わない。
-  socket.on('join', ({ name, clientId } = {}) => {
+  socket.on('join', (payload) => {
+    const { name, clientId } = payload || {};
     const id = (typeof clientId === 'string' && clientId.trim()) ? clientId.trim().slice(0, 100) : null;
     if (!id) return; // clientIdを送ってこない不正なクライアントは参加させない
     socket.data.clientId = id;
@@ -501,14 +525,16 @@ io.on('connection', (socket) => {
     broadcastState();
   });
 
-  socket.on('game:setDifficulty', ({ difficulty: d } = {}) => {
+  socket.on('game:setDifficulty', (payload) => {
+    const { difficulty: d } = payload || {};
     if (!players.has(socket.data.clientId) || started) return;
     if (!DIFFICULTIES.includes(d)) return;
     difficulty = d;
     broadcastState();
   });
 
-  socket.on('game:setCpu', ({ enabled } = {}) => {
+  socket.on('game:setCpu', (payload) => {
+    const { enabled } = payload || {};
     if (!players.has(socket.data.clientId) || started) return;
     if (enabled) {
       if (!players.has(CPU_ID)) players.set(CPU_ID, { name: 'CPU', score: 0, connected: true });
@@ -572,7 +598,8 @@ io.on('connection', (socket) => {
     advanceLetterOrFinish();
   });
 
-  socket.on('player:answer', ({ choice } = {}) => {
+  socket.on('player:answer', (payload) => {
+    const { choice } = payload || {};
     if (!started || phase !== 'buzzed' || socket.data.clientId !== buzzedId) return;
     if (typeof choice !== 'string' || !letterChoices.includes(choice)) return;
     resolveLetterChoice(choice);
