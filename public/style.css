@@ -338,10 +338,11 @@ button:disabled {
 .buzz-card {
   width: 100%;
   max-width: 340px;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f6fa 100%);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.06), 0 14px 34px rgba(0, 0, 0, 0.28);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -375,19 +376,19 @@ button:disabled {
 }
 
 .wrong-result-icon {
-  font-size: 2rem;
+  font-size: 3.2rem;
   font-weight: bold;
-  color: #d1453a;
+  color: #2b6fd1;
 }
 
 .wrong-result-label {
-  font-size: 1.6rem;
+  font-size: 2.6rem;
   font-weight: bold;
-  color: #1a1a2e;
+  color: #2b6fd1;
 }
 
 .wrong-result-letter {
-  font-size: 1.4rem;
+  font-size: 1.7rem;
   font-weight: bold;
   color: #555a6e;
 }
@@ -408,19 +409,19 @@ button:disabled {
 }
 
 .correct-result-icon {
-  font-size: 2rem;
+  font-size: 3.2rem;
   font-weight: bold;
-  color: #2e9e5b;
+  color: #d1453a;
 }
 
 .correct-result-label {
-  font-size: 1.6rem;
+  font-size: 2.6rem;
   font-weight: bold;
-  color: #1a1a2e;
+  color: #d1453a;
 }
 
 .correct-result-letter {
-  font-size: 1.4rem;
+  font-size: 1.7rem;
   font-weight: bold;
   color: #555a6e;
 }
