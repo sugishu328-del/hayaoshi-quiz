@@ -49,19 +49,27 @@ function shuffleArray(arr) {
 }
 
 // ---- 1文字ずつ選ばせる方式のための文字プール ----
-// 「・」は選ばせず自動でスキップする。数字/ローマ字/かな漢字でダミー文字の種類を揃える。
+// 「・」は選ばせず自動でスキップする。数字/ローマ字/ひらがな/カタカナ/漢字でダミー文字の種類を揃える
+// （例：「ドラえもん」のようにカタカナとひらがなが混ざる答えでも、文字ごとに種類を合わせる）。
 const SKIP_CHARS = new Set(['・']);
 
 function classifyChar(ch) {
   if (/[0-9]/.test(ch)) return 'digit';
   if (/[A-Za-z]/.test(ch)) return 'latin';
-  return 'kana';
+  if (/[ぁ-ゟ]/.test(ch)) return 'hiragana';
+  if (/[゠-ヿ･-ﾟ]/.test(ch)) return 'katakana';
+  if (/[一-鿿㐀-䶿]/.test(ch)) return 'kanji';
+  return 'kanji'; // 上記のどれにも当てはまらない稀な文字は漢字プール扱いにしておく
 }
 
-const charPools = { digit: [], latin: [], kana: [] };
+const HIRAGANA_FALLBACK = 'あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん'.split('');
+const KATAKANA_FALLBACK = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンー'.split('');
+const KANJI_FALLBACK = '日一二三四五六七八九十百千万人大小上下左右中外国年月火水木金土曜生学校先子女男川山田村町気天空海風雪花草林森石岩道車話読書聞'.split('');
+
+const charPools = { digit: [], latin: [], hiragana: [], katakana: [], kanji: [] };
 
 function buildCharPools() {
-  const seen = { digit: new Set(), latin: new Set(), kana: new Set() };
+  const seen = { digit: new Set(), latin: new Set(), hiragana: new Set(), katakana: new Set(), kanji: new Set() };
   for (const d of DIFFICULTIES) {
     for (const item of questionBanks[d]) {
       for (const ch of item.answer) {
@@ -72,7 +80,9 @@ function buildCharPools() {
   }
   charPools.digit = seen.digit.size >= 4 ? [...seen.digit] : '0123456789'.split('');
   charPools.latin = seen.latin.size >= 4 ? [...seen.latin] : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-  charPools.kana = [...seen.kana];
+  charPools.hiragana = seen.hiragana.size >= 4 ? [...seen.hiragana] : HIRAGANA_FALLBACK;
+  charPools.katakana = seen.katakana.size >= 4 ? [...seen.katakana] : KATAKANA_FALLBACK;
+  charPools.kanji = seen.kanji.size >= 4 ? [...seen.kanji] : KANJI_FALLBACK;
 }
 buildCharPools();
 
