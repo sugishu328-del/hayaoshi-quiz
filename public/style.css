@@ -293,11 +293,6 @@ button:disabled {
   font-size: 0.85rem;
 }
 
-.status-banner.buzzed {
-  background: #fdeaea;
-  color: #b23a3a;
-}
-
 .status-banner.reveal {
   background: #fff6e0;
   color: #8a6d1f;
@@ -308,9 +303,56 @@ button:disabled {
   color: #555a6e;
 }
 
-.answer-progress-panel {
-  flex: 0 0 auto;
+/* 誰かが解答中（buzzed）のときに、問題文の上へ半透明の背景つきポップアップで出す。 */
+.buzz-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 22, 34, 0.5);
+}
+
+.buzz-card {
   width: 100%;
+  max-width: 340px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.buzz-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.buzz-avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ff4d4d;
+  color: #fff;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.buzz-card-status {
+  flex: 1;
+  font-weight: bold;
+  color: #1a1a2e;
+}
+
+.answer-progress-row {
   display: flex;
   align-items: center;
   gap: 8px;
