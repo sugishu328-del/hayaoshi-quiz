@@ -283,6 +283,19 @@ button:disabled {
   50% { opacity: 0; }
 }
 
+/* 正解発表時、問題文の枠の右下に「A.答え」を重ねて表示する。 */
+.answer-reveal-label {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2b4fb0;
+  font-weight: bold;
+  font-size: 0.9rem;
+  padding: 3px 8px;
+  border-radius: 8px;
+}
+
 .status-banner {
   flex: 0 0 auto;
   width: 100%;
@@ -291,11 +304,6 @@ button:disabled {
   border-radius: 12px;
   font-weight: bold;
   font-size: 0.85rem;
-}
-
-.status-banner.reveal {
-  background: #fff6e0;
-  color: #8a6d1f;
 }
 
 .status-banner.countdown {

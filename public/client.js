@@ -48,6 +48,7 @@ const buzzBtn = document.getElementById('buzz-btn');
 const playerList = document.getElementById('player-list');
 const questionNumberEl = document.getElementById('question-number');
 const questionDisplay = document.getElementById('question-display');
+const answerRevealLabel = document.getElementById('answer-reveal-label');
 const letterTimerEl = document.getElementById('letter-timer');
 
 // 誰かが解答中（buzzed）、または誤答直後（wrong）は、問題文の上に
@@ -257,17 +258,10 @@ socket.on('state', (state) => {
     btn.disabled = false;
   });
 
-  if (phase === 'buzzed') {
-    statusBanner.classList.add('invisible');
-    buzzBtn.disabled = true;
-  } else if (phase === 'reveal') {
-    statusBanner.textContent = `正解は「${revealedAnswer}」でした！`;
-    statusBanner.className = 'status-banner reveal';
-    statusBanner.classList.remove('invisible');
-    buzzBtn.disabled = true;
-  } else {
-    // announce / open
-    statusBanner.classList.add('invisible');
-    buzzBtn.disabled = phase !== 'open' || !me || me.locked;
-  }
+  // 正解発表時は、問題文の枠の右下に「A.答え」を重ねて表示する。
+  answerRevealLabel.textContent = `A.${revealedAnswer}`;
+  answerRevealLabel.classList.toggle('hidden', phase !== 'reveal');
+
+  statusBanner.classList.add('invisible');
+  buzzBtn.disabled = phase !== 'open' || !me || me.locked;
 });
