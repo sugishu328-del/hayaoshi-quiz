@@ -20,68 +20,66 @@ function getClientId() {
 const clientId = getClientId();
 
 // ---- 効果音 ----
-// public/sounds/ に置いた音声ファイルを鳴らす。スマホのブラウザは「ユーザー操作なしの
-// 音声再生」をブロックするため、最初のタップ（参加するボタン）で一度無音再生しておく
-// ことで、以降はコードから自由にplay()できるようにする（アンロック）。
-const sfxBuzz = new Audio('sounds/buzz.mp3');
-const sfxAnnounce = new Audio('sounds/announce.mp3');
-const sfxCorrect = new Audio('sounds/correct.mp3');
-const sfxWrong = new Audio('sounds/wrong.mp3');
-const allSfx = [sfxBuzz, sfxAnnounce, sfxCorrect, sfxWrong];
-allSfx.forEach((a) => { a.preload = 'auto'; });
+// public/sounds/ に置いた音声ファイルをWeb Audio APIで鳴らす。<audio>要素の.play()を
+// 毎回呼ぶ方式だと、呼んでから実際に音が出るまでスマホで数百ms単位のラグが出ることが
+// あるため、あらかじめ音声データをデコードして持っておき、AudioContextから低遅延で
+// 再生する方式にしている。スマホのブラウザは「ユーザー操作なしの音声再生」をブロック
+// するため、AudioContextは最初のタップ（参加するボタン）で生成する。
+let audioCtx = null;
+const sfxBuffers = {}; // { buzz: AudioBuffer, announce: ..., correct: ..., wrong: ... }
+const SFX_NAMES = ['buzz', 'announce', 'correct', 'wrong'];
 
 function unlockAudio() {
-  allSfx.forEach((a) => {
-    // 解錠のための再生が実際に聞こえてしまわないよう、一瞬だけ音量を0にする
-    const originalVolume = a.volume;
-    a.volume = 0;
-    a.play().then(() => {
-      a.pause();
-      a.currentTime = 0;
-      a.volume = originalVolume;
-    }).catch(() => {
-      a.volume = originalVolume;
-    });
+  if (audioCtx) return;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  audioCtx = new Ctx();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  SFX_NAMES.forEach((name) => {
+    fetch(`sounds/${name}.mp3`)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => audioCtx.decodeAudioData(buf))
+      .then((decoded) => { sfxBuffers[name] = decoded; })
+      .catch(() => {});
   });
 }
 
 // startAt: 音声ファイル先頭の無音部分を飛ばして再生を始める位置（秒）
 // playDurationMs: 「○正解」「第N問」等のポップアップの表示時間に合わせて途中で
 //   フェードアウトさせるための、再生開始からの長さ（ミリ秒）。nullなら最後まで再生する。
-function playSfx(audio, { startAt = 0, playDurationMs = null, fadeMs = 150 } = {}) {
-  if (audio._fadeStartTimeout) { clearTimeout(audio._fadeStartTimeout); audio._fadeStartTimeout = null; }
-  if (audio._fadeInterval) { clearInterval(audio._fadeInterval); audio._fadeInterval = null; }
-  audio.currentTime = startAt;
-  audio.volume = 1;
-  audio.play().catch(() => {});
+function playSfx(name, { startAt = 0, playDurationMs = null, fadeMs = 150 } = {}) {
+  const buffer = sfxBuffers[name];
+  if (!audioCtx || !buffer) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
 
-  if (playDurationMs === null) return;
-  const fadeStartMs = Math.max(0, playDurationMs - fadeMs);
-  audio._fadeStartTimeout = setTimeout(() => {
-    const steps = 10;
-    const stepMs = fadeMs / steps;
-    let i = 0;
-    audio._fadeInterval = setInterval(() => {
-      i++;
-      audio.volume = Math.max(0, 1 - i / steps);
-      if (i >= steps) {
-        clearInterval(audio._fadeInterval);
-        audio._fadeInterval = null;
-        audio.pause();
-        audio.volume = 1; // 次回の再生に備えて元の音量に戻しておく
-      }
-    }, stepMs);
-  }, fadeStartMs);
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  const gain = audioCtx.createGain();
+  source.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  const now = audioCtx.currentTime;
+  if (playDurationMs === null) {
+    gain.gain.setValueAtTime(1, now);
+    source.start(now, startAt);
+    return;
+  }
+  const fadeStartSec = Math.max(0, playDurationMs - fadeMs) / 1000;
+  const fadeEndSec = playDurationMs / 1000;
+  gain.gain.setValueAtTime(1, now + fadeStartSec);
+  gain.gain.linearRampToValueAtTime(0.0001, now + fadeEndSec);
+  source.start(now, startAt);
+  source.stop(now + fadeEndSec + 0.02);
 }
 
-function playBuzzSound() { playSfx(sfxBuzz); }
+function playBuzzSound() { playSfx('buzz'); }
 // 「第N問」の表示は1.5秒（ANNOUNCE_DELAY_MS, server.js）なので、表示が消えた後まで
 // 音が鳴り続けてズレて聞こえないよう、そこに収まるようフェードアウトさせる。
-function playAnnounceSound() { playSfx(sfxAnnounce, { playDurationMs: 1450 }); }
+function playAnnounceSound() { playSfx('announce', { playDurationMs: 1450 }); }
 // 「○正解」の表示は1.5秒（CORRECT_ANSWER_DELAY_MS, server.js）。この音声ファイルは
 // 先頭に少し無音があるので、そこを飛ばしてから鳴らし、かつ表示時間に収まるようにする。
-function playCorrectSound() { playSfx(sfxCorrect, { startAt: 0.08, playDurationMs: 1450 }); }
-function playWrongSound() { playSfx(sfxWrong); }
+function playCorrectSound() { playSfx('correct', { startAt: 0.08, playDurationMs: 1450 }); }
+function playWrongSound() { playSfx('wrong'); }
 
 const joinScreen = document.getElementById('join-screen');
 const gameScreen = document.getElementById('game-screen');
@@ -94,6 +92,9 @@ let savedName = '';
 function doJoin(name) {
   savedName = name;
   hasJoined = true;
+  // 参加ボタンを押すまでの間に（他の人のプレイで）フェーズが進んでいても、
+  // 参加した直後に届く最初のstateを「切り替わった」と誤判定して音を鳴らさないようにする。
+  sfxPhaseInitialized = false;
   socket.emit('join', { name, clientId });
 }
 
@@ -101,6 +102,7 @@ function doJoin(name) {
 // 自動で再参加させる（clientIdが同じなのでサーバー側でスコアが維持される）。
 socket.on('connect', () => {
   if (hasJoined) {
+    sfxPhaseInitialized = false;
     socket.emit('join', { name: savedName, clientId });
   }
 });
