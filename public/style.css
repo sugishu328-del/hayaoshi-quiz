@@ -139,6 +139,9 @@ button:disabled {
 .player-list li {
   flex: 0 0 auto;
   width: 80px;
+  /* 高さを固定し、反応時間バッジの表示・非表示や枠線の太さの違い(buzzed)で
+     カードの高さが変わって参加者バー全体がガタつかないようにする。 */
+  height: 92px;
   display: flex;
   flex-direction: column;
   align-items: center;
