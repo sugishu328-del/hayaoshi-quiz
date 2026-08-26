@@ -100,7 +100,7 @@ const CPU_ACCURACY = { A: 0.3, B: 0.6, C: 0.9 }; // A=むずかしい, C=かん�
 const players = new Map(); // socketId -> { name, score }
 let started = false;
 let difficulty = 'B';
-let phase = 'open'; // announce | open | buzzed | wrong | reveal（started=falseの間は未使用）
+let phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
 let question = '';
 let questionNumber = 0; // 何問目か（game:startで1から始まる）
 let answer = ''; // サーバー内部のみで保持し、reveal時にrevealedAnswerとして公開する
@@ -111,7 +111,10 @@ let buzzedId = null;
 let noBuzzDeadline = null; // 「誰も押さないまま自動で正解発表になる」時刻（クライアントのカウントダウン表示用）
 let questionRevealedMs = 0; // この問題文がこれまでに表示され進んだ合計時間（誤答で中断された分は除く）
 let questionTypingStartedAt = null; // 直近でopenフェーズに入った（表示が再開した）時刻
+let questionOpenedAt = null; // この問題が最初にopenになった時刻（誤答での中断・再開では変わらない。反応時間の計測用）
 let wrongLetterChoice = null; // 直前に誤答した文字（「✕不正解」表示用。タイムアウト時はnull）
+let lastBuzzerId = null; // 直近に押した人（「○正解」「✕不正解」表示中はbuzzedIdがnullになるので別途保持）
+let lastBuzzerReactionMs = null; // 問題文表示開始から押すまでにかかった時間（参加者バーの表示用）
 const lockedOut = new Set(); // この問題で誤答済みのplayerId
 
 let cpuTimer = null;
@@ -120,6 +123,7 @@ let noBuzzTimer = null;
 let letterTimer = null;
 let advanceTimer = null;
 let wrongTimer = null;
+let correctTimer = null;
 let cpuWillSucceed = true;
 let cpuMistakeAt = -1; // 何文字目（ガード対象文字のうち何番目）でわざと間違えるか
 let cpuStepIndex = 0;
@@ -132,6 +136,7 @@ const LETTER_TIMEOUT_MS = 3000; // 2文字目以降、選ばないまま経過�
 const REVEAL_DELAY_MS = 3000; // 正解発表を表示しておく時間
 const ANNOUNCE_DELAY_MS = 1500; // 「第N問」だけを表示しておく時間
 const WRONG_ANSWER_DELAY_MS = 1500; // 文字を選んで誤答したときに「✕不正解」を表示しておく時間
+const CORRECT_ANSWER_DELAY_MS = 1500; // 正解し終わったときに「○正解」を表示しておく時間
 
 function cancelCpuTimer() { if (cpuTimer) { clearTimeout(cpuTimer); cpuTimer = null; } }
 function cancelCpuLetterTimer() { if (cpuLetterTimer) { clearTimeout(cpuLetterTimer); cpuLetterTimer = null; } }
@@ -149,6 +154,7 @@ function pauseQuestionTyping() {
 function cancelLetterTimer() { if (letterTimer) { clearTimeout(letterTimer); letterTimer = null; } }
 function cancelAdvanceTimer() { if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; } }
 function cancelWrongTimer() { if (wrongTimer) { clearTimeout(wrongTimer); wrongTimer = null; } }
+function cancelCorrectTimer() { if (correctTimer) { clearTimeout(correctTimer); correctTimer = null; } }
 function cancelAllTimers() {
   cancelCpuTimer();
   cancelCpuLetterTimer();
@@ -156,6 +162,7 @@ function cancelAllTimers() {
   cancelLetterTimer();
   cancelAdvanceTimer();
   cancelWrongTimer();
+  cancelCorrectTimer();
 }
 
 function publicPlayers() {
@@ -180,6 +187,8 @@ function broadcastState() {
     wrongLetterChoice,
     buzzedId,
     buzzedName: buzzedId ? players.get(buzzedId)?.name : null,
+    lastBuzzerId,
+    lastBuzzerReactionMs,
     players: publicPlayers(),
     questionCounts: { A: questionBanks.A.length, B: questionBanks.B.length, C: questionBanks.C.length },
   };
@@ -240,11 +249,23 @@ function advanceLetterOrFinish() {
   if (buzzedId === CPU_ID) scheduleCpuLetterPick();
 }
 
+// 正解し終わったら「○正解」＋答えをCORRECT_ANSWER_DELAY_MSだけ表示してから次の問題へ。
+// （誰も正解しなかった場合のenterReveal()とは別の、専用の一本道フロー）
 function finishCorrectAnswer() {
   cancelAllTimers();
   const p = players.get(buzzedId);
   if (p) p.score += 1;
-  enterReveal();
+  revealedAnswer = answer;
+  buzzedId = null;
+  resolvedCount = 0;
+  letterChoices = [];
+  phase = 'correct';
+  broadcastState();
+  correctTimer = setTimeout(() => {
+    correctTimer = null;
+    if (!started) return;
+    drawAndOpenNextQuestion();
+  }, CORRECT_ANSWER_DELAY_MS);
 }
 
 function resolveLetterChoice(choice) {
@@ -273,6 +294,8 @@ function scheduleCpuBuzzIfNeeded() {
     cancelNoBuzzTimer();
     pauseQuestionTyping();
     buzzedId = CPU_ID;
+    lastBuzzerId = CPU_ID;
+    lastBuzzerReactionMs = questionOpenedAt !== null ? Date.now() - questionOpenedAt : null;
     resolvedCount = 0;
     isFirstLetterPick = true;
     cpuStepIndex = 0;
@@ -364,8 +387,11 @@ function drawAndOpenNextQuestion() {
   revealedAnswer = '';
   buzzedId = null;
   wrongLetterChoice = null;
+  lastBuzzerId = null;
+  lastBuzzerReactionMs = null;
   questionRevealedMs = 0;
   questionTypingStartedAt = null;
+  questionOpenedAt = null;
   lockedOut.clear();
   phase = 'announce';
   broadcastState();
@@ -373,6 +399,7 @@ function drawAndOpenNextQuestion() {
     advanceTimer = null;
     if (!started) return;
     phase = 'open';
+    questionOpenedAt = Date.now();
     scheduleNoBuzzTimer();
     broadcastState();
     scheduleCpuBuzzIfNeeded();
@@ -423,8 +450,11 @@ io.on('connection', (socket) => {
     revealedAnswer = '';
     buzzedId = null;
     wrongLetterChoice = null;
+    lastBuzzerId = null;
+    lastBuzzerReactionMs = null;
     questionRevealedMs = 0;
     questionTypingStartedAt = null;
+    questionOpenedAt = null;
     lockedOut.clear();
     broadcastState();
   });
@@ -437,6 +467,8 @@ io.on('connection', (socket) => {
     cancelNoBuzzTimer();
     pauseQuestionTyping();
     buzzedId = socket.id;
+    lastBuzzerId = socket.id;
+    lastBuzzerReactionMs = questionOpenedAt !== null ? Date.now() - questionOpenedAt : null;
     resolvedCount = 0;
     isFirstLetterPick = true;
     phase = 'buzzed';

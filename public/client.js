@@ -62,6 +62,8 @@ const choiceButtons = document.querySelectorAll('.choice-btn');
 const answerProgressText = document.getElementById('answer-progress-text');
 const wrongResult = document.getElementById('wrong-result');
 const wrongResultLetter = document.getElementById('wrong-result-letter');
+const correctResult = document.getElementById('correct-result');
+const correctResultLetter = document.getElementById('correct-result-letter');
 
 buzzBtn.addEventListener('click', () => {
   socket.emit('player:buzz');
@@ -110,7 +112,8 @@ function updateLetterCountdown(active, key, isFirstLetter) {
 }
 
 // 上部の参加者バーは横並びの小さいチップ表示（人数が増えても1行に収まるよう縮む）。
-function renderPlayerList(container, players, buzzedId) {
+// 誰かが押した直後（buzzed/wrong/correct）は、その人のチップに反応時間を添える。
+function renderPlayerList(container, players, buzzedId, showReactionFor, reactionMs) {
   container.innerHTML = '';
   players
     .slice()
@@ -121,6 +124,12 @@ function renderPlayerList(container, players, buzzedId) {
       li.title = `${p.name}（${p.score}点）`;
       if (p.locked) li.classList.add('locked');
       if (p.id === buzzedId) li.classList.add('buzzed');
+      if (showReactionFor && p.id === showReactionFor && typeof reactionMs === 'number') {
+        const badge = document.createElement('span');
+        badge.className = 'reaction-badge';
+        badge.textContent = `${(reactionMs / 1000).toFixed(2)}秒`;
+        li.appendChild(badge);
+      }
       container.appendChild(li);
     });
 }
@@ -204,6 +213,8 @@ socket.on('state', (state) => {
     revealedAnswer,
     noBuzzDeadline,
     wrongLetterChoice,
+    lastBuzzerId,
+    lastBuzzerReactionMs,
     buzzedId,
     buzzedName,
     players,
@@ -212,7 +223,9 @@ socket.on('state', (state) => {
   currentPhase = started ? phase : null;
   currentNoBuzzDeadline = noBuzzDeadline;
 
-  renderPlayerList(playerList, players, buzzedId);
+  // 押した人への反応時間バッジは、その結果（○/✕）を表示している間だけ見せる。
+  const showReactionFor = (phase === 'buzzed' || phase === 'wrong' || phase === 'correct') ? lastBuzzerId : null;
+  renderPlayerList(playerList, players, buzzedId, showReactionFor, lastBuzzerReactionMs);
 
   gameTitle.classList.toggle('hidden', started);
   setupPanel.classList.toggle('hidden', started);
@@ -235,19 +248,25 @@ socket.on('state', (state) => {
   const isSelfBuzzed = buzzedId === socket.id;
 
   // 解答の進捗（確定した文字）は全員に見せる。選択肢のボタンは早押しに勝った本人にだけ表示する。
-  // 誤答した瞬間（wrong）は、同じポップアップの中身を「✕不正解」表示に切り替える。
+  // 誤答した瞬間（wrong）・正解し終えた瞬間（correct）は、同じポップアップの中身を
+  // 「✕不正解」「○正解」表示に切り替える。
   const showProgress = phase === 'buzzed';
   const showWrong = phase === 'wrong';
+  const showCorrect = phase === 'correct';
   const showChoices = phase === 'buzzed' && isSelfBuzzed && letterChoices && letterChoices.length > 0;
-  buzzOverlay.classList.toggle('hidden', !showProgress && !showWrong);
+  buzzOverlay.classList.toggle('hidden', !showProgress && !showWrong && !showCorrect);
   buzzLive.classList.toggle('hidden', !showProgress);
   wrongResult.classList.toggle('hidden', !showWrong);
+  correctResult.classList.toggle('hidden', !showCorrect);
   if (showProgress) {
     buzzAvatar.textContent = (buzzedName || '?').slice(0, 1);
     buzzCardStatus.textContent = isSelfBuzzed ? 'あなたが解答中…' : `${buzzedName} が解答中…`;
   }
   if (showWrong) {
     wrongResultLetter.textContent = wrongLetterChoice || '';
+  }
+  if (showCorrect) {
+    correctResultLetter.textContent = revealedAnswer || '';
   }
   answerProgressText.textContent = answerProgress || '';
   updateLetterCountdown(showProgress, (answerProgress || '').length, (answerProgress || '').length === 0);

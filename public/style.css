@@ -96,8 +96,8 @@ button:disabled {
   width: 100%;
   background: #f4f5f9;
   border-bottom: 1px solid #e0e2eb;
-  padding: 10px 12px;
-  padding-top: max(10px, env(safe-area-inset-top));
+  padding: 12px 14px;
+  padding-top: max(12px, env(safe-area-inset-top));
 }
 
 .player-list {
@@ -114,15 +114,26 @@ button:disabled {
 .player-list li {
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 140px;
+  max-width: 170px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   background: #ffffff;
   border: 1px solid #e0e2eb;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: 10px;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
+  font-weight: bold;
+}
+
+.reaction-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #ff8a3d;
+  color: #fff;
+  font-size: 0.75rem;
   font-weight: bold;
 }
 
@@ -376,6 +387,39 @@ button:disabled {
 }
 
 .wrong-result-letter {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #555a6e;
+}
+
+/* 正解し終えた瞬間、同じカードの中身をこちらに切り替えて表示する。 */
+.correct-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+}
+
+.correct-result-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.correct-result-icon {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #2e9e5b;
+}
+
+.correct-result-label {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #1a1a2e;
+}
+
+.correct-result-letter {
   font-size: 1.4rem;
   font-weight: bold;
   color: #555a6e;
