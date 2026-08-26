@@ -372,23 +372,25 @@ button:disabled {
 .wrong-result-badge {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .wrong-result-icon {
-  font-size: 3.2rem;
+  font-size: 6rem;
   font-weight: bold;
   color: #2b6fd1;
 }
 
 .wrong-result-label {
-  font-size: 2.6rem;
+  font-size: 5rem;
   font-weight: bold;
   color: #2b6fd1;
 }
 
 .wrong-result-letter {
-  font-size: 1.7rem;
+  font-size: 2.2rem;
   font-weight: bold;
   color: #555a6e;
 }
@@ -405,23 +407,25 @@ button:disabled {
 .correct-result-badge {
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .correct-result-icon {
-  font-size: 3.2rem;
+  font-size: 6rem;
   font-weight: bold;
   color: #d1453a;
 }
 
 .correct-result-label {
-  font-size: 2.6rem;
+  font-size: 5rem;
   font-weight: bold;
   color: #d1453a;
 }
 
 .correct-result-letter {
-  font-size: 1.7rem;
+  font-size: 2.2rem;
   font-weight: bold;
   color: #555a6e;
 }
