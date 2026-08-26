@@ -39,6 +39,19 @@ function drawNextQuestion(difficulty) {
   return bank[idx];
 }
 
+// picked.shortAnswer（「ここまで打てば正解」の短縮文字列）が有効かを確認し、
+// 有効ならその文字数を返す。answerの厳密な接頭辞でなければ無視して null を返す
+// （letter-by-letterの仕組み上、shortAnswerはanswerの先頭一致でなければ整合が取れないため）。
+function resolveShortAnswerLength(picked) {
+  const shortAnswer = picked.shortAnswer;
+  if (typeof shortAnswer !== 'string' || shortAnswer.length === 0) return null;
+  if (!picked.answer.startsWith(shortAnswer) || shortAnswer.length >= picked.answer.length) {
+    console.error(`questions.json: shortAnswerが不正なため無視します（question: "${picked.question}"）`);
+    return null;
+  }
+  return shortAnswer.length;
+}
+
 function shuffleArray(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -135,6 +148,7 @@ let question = '';
 let questionNumber = 0; // 何問目か（game:startで1から始まる）
 let answer = ''; // サーバー内部のみで保持し、reveal時にrevealedAnswerとして公開する
 let currentDistractors = []; // 現在の問題のもっともらしい誤答（1文字目の選択肢作りに使う）
+let currentShortAnswerLength = null; // ここまで打てば正解、という短縮文字数（未設定ならnull＝全文入力が必要）
 let resolvedCount = 0; // answerの先頭から何文字確定したか（スキップ文字も含む）
 let letterChoices = []; // 現在の文字位置の4択
 let revealedAnswer = '';
@@ -268,6 +282,10 @@ function scheduleLetterTimeout(timeoutMs) {
 function advanceLetterOrFinish() {
   while (resolvedCount < answer.length && SKIP_CHARS.has(answer[resolvedCount])) {
     resolvedCount++;
+  }
+  if (currentShortAnswerLength !== null && resolvedCount >= currentShortAnswerLength) {
+    finishCorrectAnswer();
+    return;
   }
   if (resolvedCount >= answer.length) {
     finishCorrectAnswer();
@@ -416,6 +434,7 @@ function drawAndOpenNextQuestion() {
   questionNumber++;
   answer = picked ? picked.answer : '';
   currentDistractors = picked && Array.isArray(picked.distractors) ? picked.distractors : [];
+  currentShortAnswerLength = picked ? resolveShortAnswerLength(picked) : null;
   resolvedCount = 0;
   letterChoices = [];
   revealedAnswer = '';
