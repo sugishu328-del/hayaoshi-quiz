@@ -390,7 +390,7 @@ button:disabled {
 }
 
 .wrong-result-letter {
-  font-size: 1.9rem;
+  font-size: 1.4rem;
   font-weight: bold;
   color: #555a6e;
 }
@@ -425,7 +425,7 @@ button:disabled {
 }
 
 .correct-result-letter {
-  font-size: 1.9rem;
+  font-size: 1.4rem;
   font-weight: bold;
   color: #555a6e;
 }
