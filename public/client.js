@@ -61,6 +61,7 @@ const cpuToggle = document.getElementById('cpu-toggle-checkbox');
 const startGameBtn = document.getElementById('start-game-btn');
 const endGameBtn = document.getElementById('end-game-btn');
 const topBar = document.getElementById('top-bar');
+const questionNumberBadge = document.getElementById('question-number-badge');
 
 difficultyButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -323,6 +324,10 @@ socket.on('state', (state) => {
   cpuToggle.checked = players.some((p) => p.id === 'cpu');
 
   if (!started) return;
+
+  // 上部バー中央の「QN」バッジは、フェーズに関わらず常に何問目かを表示し続ける
+  // （「第N問」の一瞬表示とは別物）。
+  questionNumberBadge.textContent = `Q${questionNumber}`;
 
   // 正解発表の後、次の問題文が出る前に「第N問」だけを一瞬表示する。
   // question-number と question-display は同じ枠に重ねて表示し、
