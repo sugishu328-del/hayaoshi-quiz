@@ -125,6 +125,8 @@ const setupPanel = document.getElementById('setup-panel');
 const playPanel = document.getElementById('play-panel');
 const difficultyButtons = document.querySelectorAll('.difficulty-btn');
 const cpuToggle = document.getElementById('cpu-toggle-checkbox');
+const winScoreInput = document.getElementById('win-score-input');
+const questionLimitInput = document.getElementById('question-limit-input');
 const startGameBtn = document.getElementById('start-game-btn');
 const endGameBtn = document.getElementById('end-game-btn');
 const topBar = document.getElementById('top-bar');
@@ -138,6 +140,14 @@ difficultyButtons.forEach((btn) => {
 
 cpuToggle.addEventListener('change', () => {
   socket.emit('game:setCpu', { enabled: cpuToggle.checked });
+});
+
+// 空欄・0は「制限なし」として送る。
+winScoreInput.addEventListener('change', () => {
+  socket.emit('game:setWinScore', { winScore: winScoreInput.value === '' ? 0 : Number(winScoreInput.value) });
+});
+questionLimitInput.addEventListener('change', () => {
+  socket.emit('game:setQuestionLimit', { questionLimit: questionLimitInput.value === '' ? 0 : Number(questionLimitInput.value) });
 });
 
 startGameBtn.addEventListener('click', () => socket.emit('game:start'));
@@ -157,6 +167,34 @@ endConfirmOkBtn.addEventListener('click', () => {
   endConfirmOverlay.classList.add('hidden');
   socket.emit('game:end');
 });
+
+// 先取点数・出題数上限に到達すると自動的にこの画面になる（確認なしでそのまま終了してよい）。
+const gameOverOverlay = document.getElementById('game-over-overlay');
+const gameOverRanking = document.getElementById('game-over-ranking');
+const gameOverCloseBtn = document.getElementById('game-over-close-btn');
+
+gameOverCloseBtn.addEventListener('click', () => {
+  socket.emit('game:end');
+});
+
+function renderGameOverRanking(players) {
+  gameOverRanking.innerHTML = '';
+  const sorted = players.slice().sort((a, b) => b.score - a.score);
+  const topScore = sorted.length > 0 ? sorted[0].score : 0;
+  sorted.forEach((p) => {
+    const li = document.createElement('li');
+    if (p.score === topScore && topScore > 0) li.classList.add('winner');
+    const name = document.createElement('span');
+    name.className = 'game-over-name';
+    name.textContent = p.name;
+    const score = document.createElement('span');
+    score.className = 'game-over-score';
+    score.textContent = `${p.score}点`;
+    li.appendChild(name);
+    li.appendChild(score);
+    gameOverRanking.appendChild(li);
+  });
+}
 
 // ---- プレイ画面 ----
 // 出たり消えたりする要素は display ではなく visibility を切り替える（invisibleクラス）。
@@ -365,6 +403,8 @@ socket.on('state', (state) => {
   const {
     started,
     difficulty,
+    winScore,
+    questionLimit,
     phase,
     question,
     questionNumber,
@@ -411,6 +451,15 @@ socket.on('state', (state) => {
   topBar.classList.toggle('hidden', !started);
   difficultyButtons.forEach((b) => b.classList.toggle('active', b.dataset.difficulty === difficulty));
   cpuToggle.checked = players.some((p) => p.id === 'cpu');
+  // 入力中（フォーカス中）の欄は、他の人の操作で届いたstateで値を上書きしないようにする。
+  if (document.activeElement !== winScoreInput) winScoreInput.value = winScore > 0 ? winScore : '';
+  if (document.activeElement !== questionLimitInput) questionLimitInput.value = questionLimit > 0 ? questionLimit : '';
+
+  gameOverOverlay.classList.toggle('hidden', phase !== 'gameOver');
+  if (phase === 'gameOver') {
+    renderGameOverRanking(players);
+    return;
+  }
 
   if (!started) return;
 

@@ -79,6 +79,28 @@ io.on('connection', (socket) => {
     room.broadcastState();
   });
 
+  socket.on('game:setWinScore', (payload) => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    const { winScore } = payload || {};
+    if (!room.players.has(socket.data.clientId) || room.started) return;
+    const n = Number(winScore);
+    if (!Number.isInteger(n) || n < 0 || n > 99) return;
+    room.winScore = n;
+    room.broadcastState();
+  });
+
+  socket.on('game:setQuestionLimit', (payload) => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    const { questionLimit } = payload || {};
+    if (!room.players.has(socket.data.clientId) || room.started) return;
+    const n = Number(questionLimit);
+    if (!Number.isInteger(n) || n < 0 || n > 99) return;
+    room.questionLimit = n;
+    room.broadcastState();
+  });
+
   socket.on('game:start', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;

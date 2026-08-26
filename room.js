@@ -38,6 +38,8 @@ class Room {
 
     this.started = false;
     this.difficulty = 'B';
+    this.winScore = 5; // 0 = 制限なし。設定した点数に誰かが到達したら次の問題に進まずゲーム終了にする
+    this.questionLimit = 30; // 0 = 制限なし。この問題数を出題し終えたらゲーム終了にする
     this.phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
     this.question = '';
     this.questionNumber = 0; // 何問目か（game:startで1から始まる）
@@ -134,6 +136,8 @@ class Room {
     const base = {
       started: this.started,
       difficulty: this.difficulty,
+      winScore: this.winScore,
+      questionLimit: this.questionLimit,
       phase: this.phase,
       question: this.question,
       questionNumber: this.questionNumber,
@@ -349,7 +353,26 @@ class Room {
     }, REVEAL_DELAY_MS);
   }
 
+  // 先取点数・出題数上限のどちらかに到達していたら、次の問題を出さずにゲーム終了にする。
+  // 「次の問題を出そうとするタイミング」だけでチェックすれば、正解が確定した直後
+  // （drawAndOpenNextQuestionが呼ばれる前）はcorrectReveal等の演出を最後まで見せられる。
+  enterGameOver() {
+    this.cancelAllTimers();
+    this.phase = 'gameOver';
+    this.buzzedId = null;
+    this.letterChoices = [];
+    this.broadcastState();
+  }
+
   drawAndOpenNextQuestion() {
+    if (this.questionLimit > 0 && this.questionNumber >= this.questionLimit) {
+      this.enterGameOver();
+      return;
+    }
+    if (this.winScore > 0 && [...this.players.values()].some((p) => p.score >= this.winScore)) {
+      this.enterGameOver();
+      return;
+    }
     this.cancelAllTimers();
     const picked = this.drawNextQuestion(this.difficulty);
     this.question = picked ? picked.question : '';

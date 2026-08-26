@@ -40,6 +40,16 @@
         <input type="checkbox" id="cpu-toggle-checkbox" />
         CPU対戦相手を参加させる
       </label>
+      <div class="room-settings">
+        <label class="setting-field">
+          先取点数
+          <input type="number" id="win-score-input" min="0" max="99" placeholder="制限なし" />
+        </label>
+        <label class="setting-field">
+          出題数上限
+          <input type="number" id="question-limit-input" min="0" max="99" placeholder="制限なし" />
+        </label>
+      </div>
       <button id="start-game-btn">ゲーム開始</button>
     </div>
 
@@ -91,6 +101,14 @@
         </div>
         <div id="correct-result-letter" class="correct-result-letter"></div>
       </div>
+    </div>
+  </div>
+
+  <div id="game-over-overlay" class="buzz-overlay hidden">
+    <div class="buzz-card game-over-card">
+      <p class="game-over-title">ゲーム終了！</p>
+      <ul id="game-over-ranking" class="game-over-ranking"></ul>
+      <button id="game-over-close-btn" class="end-confirm-ok">閉じる</button>
     </div>
   </div>
 

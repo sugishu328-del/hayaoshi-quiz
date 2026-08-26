@@ -290,6 +290,31 @@ button:disabled {
   height: 18px;
 }
 
+.room-settings {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+}
+
+.setting-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #555a6e;
+}
+
+.setting-field input[type="number"] {
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid #c7cbdb;
+  background: #ffffff;
+  color: #1a1a2e;
+  font-size: 1rem;
+  width: 100%;
+}
+
 #end-game-btn {
   padding: 5px 10px;
   font-size: 0.7rem;
@@ -540,6 +565,59 @@ button:disabled {
 
 .end-confirm-ok {
   background: #ff4d4d;
+}
+
+/* ゲーム終了（先取点数・出題数上限に到達）の結果画面 */
+.game-over-card {
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  margin-top: 0;
+}
+
+.game-over-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #2b4fb0;
+}
+
+.game-over-ranking {
+  width: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.game-over-ranking li {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f4f5f9;
+  border: 2px solid #e0e2eb;
+}
+
+.game-over-ranking li.winner {
+  border-color: #ffb020;
+  background: #fff6e0;
+}
+
+.game-over-name {
+  font-weight: bold;
+  color: #1a1a2e;
+}
+
+.game-over-score {
+  font-weight: bold;
+  color: #555a6e;
 }
 
 .answer-progress-row {
