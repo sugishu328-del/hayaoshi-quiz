@@ -17,6 +17,10 @@
 </div>
 
 <div id="game-screen" class="screen game-screen hidden">
+  <div id="top-bar" class="top-bar hidden">
+    <button id="end-game-btn">終了</button>
+  </div>
+
   <header id="player-bar" class="player-bar">
     <ul id="player-list" class="player-list"></ul>
   </header>
@@ -39,11 +43,6 @@
     </div>
 
     <div id="play-panel" class="play-panel hidden">
-      <div class="session-info">
-        難易度 <span id="active-difficulty-label"></span> で開催中
-        <button id="end-game-btn">終了</button>
-      </div>
-
       <div class="stage">
         <div id="question-number" class="question-number"></div>
         <div id="question-display" class="question-display"></div>

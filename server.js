@@ -175,7 +175,7 @@ let cpuStepIndex = 0;
 let isFirstLetterPick = true; // 早押し後、最初の1文字目だけ制限時間を長くする
 
 const TYPEWRITER_SPEED_MS = 140; // client.jsの問題文タイプライター表示と同じ速さ（表示完了タイミングの計算に使う）
-const CORRECT_REVEAL_SPEED_MS = 70; // 正解後、残りの問題文を続きから表示するときの速さ（client.jsと同じ値）
+const CORRECT_REVEAL_SPEED_MS = 47; // 正解後、残りの問題文を続きから表示するときの速さ（client.jsと同じ値）
 const NO_BUZZ_TIMEOUT_MS = 5000; // 問題文が表示され終わってから、誰も押さないまま経過したら諦めて次の問題へ
 const FIRST_LETTER_TIMEOUT_MS = 5000; // 早押し直後、1文字目だけの制限時間
 const LETTER_TIMEOUT_MS = 3000; // 2文字目以降、選ばないまま経過したら誤答扱い

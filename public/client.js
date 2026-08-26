@@ -24,7 +24,7 @@ const difficultyButtons = document.querySelectorAll('.difficulty-btn');
 const cpuToggle = document.getElementById('cpu-toggle-checkbox');
 const startGameBtn = document.getElementById('start-game-btn');
 const endGameBtn = document.getElementById('end-game-btn');
-const activeDifficultyLabel = document.getElementById('active-difficulty-label');
+const topBar = document.getElementById('top-bar');
 
 difficultyButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -135,7 +135,7 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
 }
 
 const TYPEWRITER_SPEED_MS = 140;
-const CORRECT_REVEAL_SPEED_MS = 70; // 正解後、残りの問題文を続きから表示するときの速さ（出題時より速い）
+const CORRECT_REVEAL_SPEED_MS = 47; // 正解後、残りの問題文を続きから表示するときの速さ（出題時より速い）
 const revealState = { text: null, index: 0, timer: null };
 
 // 早押しクイズなので問題文を1文字ずつ表示する。誰かが押している間は表示を止め、
@@ -192,6 +192,7 @@ function updateQuestionReveal(el, text, phase) {
 // （表示が終わったかどうかはこのクライアント自身のタイプライター表示の完了で判断する）
 let currentPhase = null;
 let currentNoBuzzDeadline = null;
+let latestRevealedAnswer = null;
 
 function tickNoBuzzCountdown() {
   if (currentPhase !== 'open' || !currentNoBuzzDeadline) return;
@@ -202,7 +203,20 @@ function tickNoBuzzCountdown() {
   statusBanner.className = 'status-banner countdown';
   statusBanner.classList.remove('invisible');
 }
-setInterval(tickNoBuzzCountdown, 250);
+
+// 正解後(correctReveal)は、残りの問題文の表示が終わるまで「A.答え」を隠す。
+// 誰も正解しなかった場合の発表(reveal)は、今まで通りすぐ表示する。
+function tickAnswerRevealLabel() {
+  const isTypingDone = revealState.text !== null && revealState.index >= revealState.text.length;
+  const show = currentPhase === 'reveal' || (currentPhase === 'correctReveal' && isTypingDone);
+  answerRevealLabel.textContent = `A.${latestRevealedAnswer || ''}`;
+  answerRevealLabel.classList.toggle('hidden', !show);
+}
+
+setInterval(() => {
+  tickNoBuzzCountdown();
+  tickAnswerRevealLabel();
+}, 250);
 
 socket.on('state', (state) => {
   const {
@@ -233,9 +247,9 @@ socket.on('state', (state) => {
   gameTitle.classList.toggle('hidden', started);
   setupPanel.classList.toggle('hidden', started);
   playPanel.classList.toggle('hidden', !started);
+  topBar.classList.toggle('hidden', !started);
   difficultyButtons.forEach((b) => b.classList.toggle('active', b.dataset.difficulty === difficulty));
   cpuToggle.checked = players.some((p) => p.id === 'cpu');
-  activeDifficultyLabel.textContent = difficulty;
 
   if (!started) return;
 
@@ -280,9 +294,10 @@ socket.on('state', (state) => {
     btn.disabled = false;
   });
 
-  // 正解発表時は、問題文の枠の右下に「A.答え」を重ねて表示する。
-  answerRevealLabel.textContent = `A.${revealedAnswer}`;
-  answerRevealLabel.classList.toggle('hidden', phase !== 'reveal' && phase !== 'correctReveal');
+  // 正解発表時は、問題文の枠の右下に「A.答え」を重ねて表示する
+  // （correctRevealのときは残りの問題文が表示し終わるまでtickAnswerRevealLabelが隠す）。
+  latestRevealedAnswer = revealedAnswer;
+  tickAnswerRevealLabel();
 
   statusBanner.classList.add('invisible');
   buzzBtn.disabled = phase !== 'open' || !me || me.locked;
