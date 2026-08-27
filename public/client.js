@@ -84,39 +84,75 @@ function playWrongSound() { playSfx('wrong'); }
 const joinScreen = document.getElementById('join-screen');
 const gameScreen = document.getElementById('game-screen');
 const nameInput = document.getElementById('name-input');
-const joinBtn = document.getElementById('join-btn');
+const modeTrainingBtn = document.getElementById('mode-training-btn');
+const modeFriendBtn = document.getElementById('mode-friend-btn');
 
 let hasJoined = false;
 let savedName = '';
+let selectedMode = null; // 'training' | 'friend'
 
-function doJoin(name) {
+function doJoin(name, mode) {
   savedName = name;
+  selectedMode = mode;
   hasJoined = true;
   // 参加ボタンを押すまでの間に（他の人のプレイで）フェーズが進んでいても、
   // 参加した直後に届く最初のstateを「切り替わった」と誤判定して音を鳴らさないようにする。
   sfxPhaseInitialized = false;
-  socket.emit('join', { name, clientId });
+  socket.emit('join', { name, clientId, mode });
 }
 
 // 画面ロック・電波切れ等で切断された後、socket.ioが自動で再接続したときに
-// 自動で再参加させる（clientIdが同じなのでサーバー側でスコアが維持される）。
+// 自動で再参加させる（clientId・modeが同じなのでサーバー側で同じ部屋・スコアに戻れる）。
 socket.on('connect', () => {
   if (hasJoined) {
     sfxPhaseInitialized = false;
-    socket.emit('join', { name: savedName, clientId });
+    socket.emit('join', { name: savedName, clientId, mode: selectedMode });
   }
 });
 
-joinBtn.addEventListener('click', () => {
+function startJoinFlow(mode) {
   const name = nameInput.value.trim();
   if (!name) {
     nameInput.focus();
     return;
   }
   unlockAudio();
-  doJoin(name);
+  doJoin(name, mode);
   joinScreen.classList.add('hidden');
   gameScreen.classList.remove('hidden');
+}
+
+modeTrainingBtn.addEventListener('click', () => startJoinFlow('training'));
+modeFriendBtn.addEventListener('click', () => startJoinFlow('friend'));
+
+// ---- モード選択に戻る ----
+const backToModeBtn = document.getElementById('back-to-mode-btn');
+const leaveConfirmOverlay = document.getElementById('leave-confirm-overlay');
+const leaveConfirmCancelBtn = document.getElementById('leave-confirm-cancel');
+const leaveConfirmOkBtn = document.getElementById('leave-confirm-ok');
+let currentlyStarted = false;
+
+function leaveToModeSelect() {
+  socket.emit('leave');
+  hasJoined = false;
+  selectedMode = null;
+  gameScreen.classList.add('hidden');
+  joinScreen.classList.remove('hidden');
+}
+
+backToModeBtn.addEventListener('click', () => {
+  if (currentlyStarted) {
+    leaveConfirmOverlay.classList.remove('hidden');
+  } else {
+    leaveToModeSelect();
+  }
+});
+leaveConfirmCancelBtn.addEventListener('click', () => {
+  leaveConfirmOverlay.classList.add('hidden');
+});
+leaveConfirmOkBtn.addEventListener('click', () => {
+  leaveConfirmOverlay.classList.add('hidden');
+  leaveToModeSelect();
 });
 
 // ---- セットアップパネル（誰でも操作可） ----
@@ -124,12 +160,12 @@ const gameTitle = document.getElementById('game-title');
 const setupPanel = document.getElementById('setup-panel');
 const playPanel = document.getElementById('play-panel');
 const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+const cpuToggleRow = document.querySelector('.cpu-toggle');
 const cpuToggle = document.getElementById('cpu-toggle-checkbox');
 const winScoreInput = document.getElementById('win-score-input');
 const questionLimitInput = document.getElementById('question-limit-input');
 const startGameBtn = document.getElementById('start-game-btn');
 const endGameBtn = document.getElementById('end-game-btn');
-const topBar = document.getElementById('top-bar');
 const questionNumberBadge = document.getElementById('question-number-badge');
 
 difficultyButtons.forEach((btn) => {
@@ -414,6 +450,7 @@ socket.on('state', (state) => {
     phase,
     question,
     questionNumber,
+    isTraining,
     answerProgress,
     letterChoices,
     revealedAnswer,
@@ -431,6 +468,7 @@ socket.on('state', (state) => {
 
   currentPhase = started ? phase : null;
   currentNoBuzzDeadline = noBuzzDeadline;
+  currentlyStarted = started;
 
   // フェーズが切り替わった瞬間にだけ効果音を鳴らす（同じフェーズ中に他の理由で
   // stateが再送されても連打で鳴ってしまわないように、直前のフェーズと比較する）。
@@ -455,8 +493,12 @@ socket.on('state', (state) => {
   gameTitle.classList.toggle('hidden', started);
   setupPanel.classList.toggle('hidden', started);
   playPanel.classList.toggle('hidden', !started);
-  topBar.classList.toggle('hidden', !started);
+  questionNumberBadge.classList.toggle('hidden', !started);
+  endGameBtn.classList.toggle('hidden', !started);
   difficultyButtons.forEach((b) => b.classList.toggle('active', b.dataset.difficulty === difficulty));
+  // CPU参加の選択肢はトレーニングモードでのみ表示する（フレンド対戦モードでは非表示）。
+  // トレーニングモードでも今まで通り自由にON/OFFを選べる。
+  cpuToggleRow.classList.toggle('hidden', !isTraining);
   cpuToggle.checked = players.some((p) => p.id === 'cpu');
   // 入力中（フォーカス中）の欄は、他の人の操作で届いたstateで値を上書きしないようにする。
   if (document.activeElement !== winScoreInput) winScoreInput.value = winScore > 0 ? winScore : '';

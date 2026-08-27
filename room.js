@@ -25,6 +25,7 @@ class Room {
   constructor(id, io) {
     this.id = id; // Socket.ioの部屋名としても使う
     this.io = io;
+    this.isTraining = false; // trueならトレーニングモード専用の部屋（CPU固定参加・持ち主が抜けたら自動で破棄される）
 
     // ---- ゲーム状態（出題者なし・全員参加者） ----
     // playersはブラウザごとに割り振られる永続的なclientId（localStorageに保存）をキーにする。
@@ -97,6 +98,15 @@ class Room {
     return count;
   }
 
+  // トレーニング部屋はCPUが常時connected:trueのまま残るため、connectedPlayerCount()では
+  // 「持ち主(人間)がいなくなったか」を判定できない。CPUを除いて判定する。
+  hasConnectedHuman() {
+    for (const [id, p] of this.players) {
+      if (id !== CPU_ID && p.connected) return true;
+    }
+    return false;
+  }
+
   cancelCpuTimer() { if (this.cpuTimer) { clearTimeout(this.cpuTimer); this.cpuTimer = null; } }
   cancelCpuLetterTimer() { if (this.cpuLetterTimer) { clearTimeout(this.cpuLetterTimer); this.cpuLetterTimer = null; } }
   cancelNoBuzzTimer() { if (this.noBuzzTimer) { clearTimeout(this.noBuzzTimer); this.noBuzzTimer = null; } this.noBuzzDeadline = null; }
@@ -142,6 +152,7 @@ class Room {
       phase: this.phase,
       question: this.question,
       questionNumber: this.questionNumber,
+      isTraining: this.isTraining,
       revealedAnswer: this.revealedAnswer,
       revealedInput: this.revealedInput,
       noBuzzDeadline: this.noBuzzDeadline,

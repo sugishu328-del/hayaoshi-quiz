@@ -46,6 +46,59 @@ h1 {
   margin: 0 0 8px;
 }
 
+/* 参加画面のタイトル。白抜き文字＋太い縁取りのポップな見た目にする。 */
+.app-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 24px;
+  line-height: 1.15;
+}
+
+.app-title span {
+  font-family: "M PLUS Rounded 1c", "Hiragino Sans", "Yu Gothic", sans-serif;
+  font-weight: 900;
+  font-size: 2.1rem;
+  color: #ffffff;
+  -webkit-text-stroke: 6px #5b8cff;
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 rgba(43, 79, 176, 0.25);
+}
+
+.mode-select {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 14px;
+  border-radius: 14px;
+}
+
+.mode-btn-training {
+  background: #5b8cff;
+}
+
+.mode-btn-friend {
+  background: #ff8a3d;
+}
+
+.mode-btn-title {
+  font-size: 1.05rem;
+  font-weight: bold;
+}
+
+.mode-btn-desc {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
 .card {
   width: 100%;
   background: #f4f5f9;
@@ -108,6 +161,11 @@ button:disabled {
   font-weight: bold;
   font-size: 1rem;
   color: #2b4fb0;
+}
+
+.back-btn {
+  grid-column: 1;
+  justify-self: start;
 }
 
 #end-game-btn {
@@ -316,6 +374,12 @@ button:disabled {
 }
 
 #end-game-btn {
+  padding: 5px 10px;
+  font-size: 0.7rem;
+  background: #8a90a8;
+}
+
+.back-btn {
   padding: 5px 10px;
   font-size: 0.7rem;
   background: #8a90a8;

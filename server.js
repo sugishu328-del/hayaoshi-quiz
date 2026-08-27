@@ -23,6 +23,41 @@ function getRoomForSocket(socket) {
   return rooms.get(socket.data.roomId);
 }
 
+// プレイヤーが部屋からいなくなった直後（切断の猶予切れ、または明示的な離脱）に
+// 進行中のラウンドを止めないための共通処理。「部屋の設定画面に戻る」場合はそのまま
+// broadcastStateするだけでよい。
+function handlePlayerDeparture(room, wasBuzzed) {
+  if (!room.started) {
+    room.broadcastState();
+    return;
+  }
+  if (wasBuzzed) {
+    room.cancelLetterTimer();
+    room.buzzedId = null;
+    room.resolvedCount = 0;
+    room.letterChoices = [];
+    if (room.lockedOut.size >= room.connectedPlayerCount()) {
+      room.enterReveal();
+    } else {
+      room.phase = 'open';
+      room.scheduleNoBuzzTimer();
+      room.broadcastState();
+      room.scheduleCpuBuzzIfNeeded();
+    }
+  } else if (room.phase === 'open' && room.connectedPlayerCount() > 0 && room.lockedOut.size >= room.connectedPlayerCount()) {
+    room.enterReveal();
+  } else {
+    room.broadcastState();
+  }
+}
+
+// トレーニング部屋（持ち主1人＋CPU専用）が空になったら、作りっぱなしにせず消す。
+function destroyTrainingRoomIfEmpty(room) {
+  if (!room.isTraining || room.hasConnectedHuman()) return;
+  room.cancelAllTimers();
+  rooms.delete(room.id);
+}
+
 io.on('connection', (socket) => {
   // 接続した瞬間に（joinイベントを送るより前でも）部屋に入れておく。これは今までの
   // 「サーバーに繋がっている全ソケットに配信する」という挙動を厳密に保つため。
@@ -33,11 +68,27 @@ io.on('connection', (socket) => {
   // 同一人物を判定するので、再接続（画面ロック・電波切れ等でのsocket再接続）してもスコアを
   // 引き継げる。socket.idは接続のたびに変わるため、識別には使わない。
   socket.on('join', (payload) => {
-    const room = getRoomForSocket(socket);
-    if (!room) return;
-    const { name, clientId } = payload || {};
+    const { name, clientId, mode } = payload || {};
     const id = (typeof clientId === 'string' && clientId.trim()) ? clientId.trim().slice(0, 100) : null;
     if (!id) return; // clientIdを送ってこない不正なクライアントは参加させない
+
+    // トレーニングモードは「持ち主(clientId)専用の部屋」に入れる。まだ無ければここで作る。
+    // フレンド対戦モードは今まで通り全員が入る既定の部屋のまま。
+    const targetRoomId = mode === 'training' ? `training:${id}` : DEFAULT_ROOM_ID;
+    if (socket.data.roomId !== targetRoomId) {
+      socket.leave(socket.data.roomId);
+      if (mode === 'training' && !rooms.has(targetRoomId)) {
+        const trainingRoom = new Room(targetRoomId, io);
+        trainingRoom.isTraining = true;
+        rooms.set(targetRoomId, trainingRoom);
+      }
+      socket.data.roomId = targetRoomId;
+      socket.join(targetRoomId);
+    }
+
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+
     socket.data.clientId = id;
     room.socketIdByClientId.set(id, socket.id);
 
@@ -54,6 +105,28 @@ io.on('connection', (socket) => {
       room.players.set(id, { name: cleanName, score: 0, connected: true, disconnectTimer: null });
     }
     room.broadcastState();
+  });
+
+  // 「モード選択に戻る」で明示的に部屋を離れる。画面ロック等の一時切断とは違い、
+  // 猶予時間を待たずすぐにプレイヤーを消し、トレーニング部屋なら空になり次第すぐ破棄する。
+  socket.on('leave', () => {
+    const room = getRoomForSocket(socket);
+    if (room) {
+      const clientId = socket.data.clientId;
+      socket.leave(room.id);
+      if (clientId && room.players.has(clientId)) {
+        const p = room.players.get(clientId);
+        if (p && p.disconnectTimer) clearTimeout(p.disconnectTimer);
+        const wasBuzzed = room.buzzedId === clientId;
+        room.players.delete(clientId);
+        room.socketIdByClientId.delete(clientId);
+        handlePlayerDeparture(room, wasBuzzed);
+      }
+      destroyTrainingRoomIfEmpty(room);
+    }
+    socket.data.clientId = null;
+    socket.data.roomId = DEFAULT_ROOM_ID;
+    socket.join(DEFAULT_ROOM_ID);
   });
 
   socket.on('game:setDifficulty', (payload) => {
@@ -191,37 +264,16 @@ io.on('connection', (socket) => {
       p.disconnectTimer = setTimeout(() => {
         room.players.delete(clientId);
         room.broadcastState();
+        destroyTrainingRoomIfEmpty(room);
       }, DISCONNECT_GRACE_MS);
     }
 
-    if (!room.started) {
-      room.broadcastState();
-      return;
-    }
-
-    if (wasBuzzed) {
-      room.cancelLetterTimer();
-      room.buzzedId = null;
-      room.resolvedCount = 0;
-      room.letterChoices = [];
-      // connectedPlayerCount()が0のときはlockedOut.size(0以上)が必ずそれ以上になるので、
-      // 自然にenterReveal()に入る（＝誰もいなくても自動進行し続け、後で誰か参加/再接続
-      // したときに止まったままにならない。以前はここで無条件にopenへ戻すだけの特別扱いを
-      // していて、そのままだと再開後の自動進行タイマーが一切スケジュールされず、
-      // ラウンドが永久に止まってしまうバグがあった）。
-      if (room.lockedOut.size >= room.connectedPlayerCount()) {
-        room.enterReveal();
-      } else {
-        room.phase = 'open';
-        room.scheduleNoBuzzTimer();
-        room.broadcastState();
-        room.scheduleCpuBuzzIfNeeded();
-      }
-    } else if (room.phase === 'open' && room.connectedPlayerCount() > 0 && room.lockedOut.size >= room.connectedPlayerCount()) {
-      room.enterReveal();
-    } else {
-      room.broadcastState();
-    }
+    // connectedPlayerCount()が0のときはlockedOut.size(0以上)が必ずそれ以上になるので、
+    // 自然にenterReveal()に入る（＝誰もいなくても自動進行し続け、後で誰か参加/再接続
+    // したときに止まったままにならない。以前はここで無条件にopenへ戻すだけの特別扱いを
+    // していて、そのままだと再開後の自動進行タイマーが一切スケジュールされず、
+    // ラウンドが永久に止まってしまうバグがあった）。
+    handlePlayerDeparture(room, wasBuzzed);
   });
 });
 
