@@ -117,9 +117,15 @@ function startJoinFlow(mode) {
     return;
   }
   unlockAudio();
+  // 直前まで別の部屋にいた場合、参加直後にすぐゲーム画面を表示すると、新しい部屋の状態が
+  // 届くまでの一瞬だけ前の部屋の表示（CPU参加ボタンの有無、難易度の選択状態など）が
+  // 残って見えてしまう。新しい部屋のstateが届く（＝画面が正しく更新される）まで待ってから
+  // 画面を切り替える。
+  socket.once('state', () => {
+    joinScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+  });
   doJoin(name, mode);
-  joinScreen.classList.add('hidden');
-  gameScreen.classList.remove('hidden');
 }
 
 modeTrainingBtn.addEventListener('click', () => startJoinFlow('training'));
