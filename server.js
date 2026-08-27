@@ -19,6 +19,10 @@ const DEFAULT_ROOM_ID = 'default';
 const rooms = new Map();
 rooms.set(DEFAULT_ROOM_ID, new Room(DEFAULT_ROOM_ID, io));
 
+// トレーニング部屋はclientIdを詐称して連打されると無制限に増え続けメモリを圧迫できてしまうため、
+// 同時に存在できる数の上限を設ける（既定部屋は含まない）。
+const MAX_TRAINING_ROOMS = 500;
+
 function getRoomForSocket(socket) {
   return rooms.get(socket.data.roomId);
 }
@@ -64,20 +68,54 @@ io.on('connection', (socket) => {
   socket.data.roomId = DEFAULT_ROOM_ID;
   socket.join(DEFAULT_ROOM_ID);
 
+  // 1接続からのイベント連打で同じ部屋の全員に負荷をかけられないよう、簡易的なレート制限をかける。
+  const eventTimestamps = [];
+  const RATE_LIMIT_WINDOW_MS = 1000;
+  const RATE_LIMIT_MAX_EVENTS = 20;
+  function isRateLimited() {
+    const now = Date.now();
+    while (eventTimestamps.length > 0 && now - eventTimestamps[0] >= RATE_LIMIT_WINDOW_MS) {
+      eventTimestamps.shift();
+    }
+    eventTimestamps.push(now);
+    return eventTimestamps.length > RATE_LIMIT_MAX_EVENTS;
+  }
+  function onLimited(event, handler) {
+    socket.on(event, (...args) => {
+      if (isRateLimited()) return;
+      handler(...args);
+    });
+  }
+
   // clientIdはブラウザ（localStorage）に保存された永続的な識別子。名前ではなくこれで
   // 同一人物を判定するので、再接続（画面ロック・電波切れ等でのsocket再接続）してもスコアを
   // 引き継げる。socket.idは接続のたびに変わるため、識別には使わない。
-  socket.on('join', (payload) => {
+  onLimited('join', (payload) => {
     const { name, clientId, mode } = payload || {};
     const id = (typeof clientId === 'string' && clientId.trim()) ? clientId.trim().slice(0, 100) : null;
-    if (!id) return; // clientIdを送ってこない不正なクライアントは参加させない
+    if (!id || id === CPU_ID) return; // clientIdを送ってこない不正なクライアント、CPU用の予約IDは参加させない
 
     // トレーニングモードは「持ち主(clientId)専用の部屋」に入れる。まだ無ければここで作る。
     // フレンド対戦モードは今まで通り全員が入る既定の部屋のまま。
     const targetRoomId = mode === 'training' ? `training:${id}` : DEFAULT_ROOM_ID;
     if (socket.data.roomId !== targetRoomId) {
+      // leaveを経由せずモードを切り替えられた場合に備え、元の部屋に残っている
+      // 自分のプレイヤー情報を先に片付けておく（幽霊プレイヤーとして残さない）。
+      const oldRoom = getRoomForSocket(socket);
+      const oldClientId = socket.data.clientId;
+      if (oldRoom && oldClientId && oldRoom.players.has(oldClientId) && oldRoom.socketIdByClientId.get(oldClientId) === socket.id) {
+        const p = oldRoom.players.get(oldClientId);
+        if (p && p.disconnectTimer) clearTimeout(p.disconnectTimer);
+        const wasBuzzed = oldRoom.buzzedId === oldClientId;
+        oldRoom.players.delete(oldClientId);
+        oldRoom.socketIdByClientId.delete(oldClientId);
+        handlePlayerDeparture(oldRoom, wasBuzzed);
+        destroyTrainingRoomIfEmpty(oldRoom);
+      }
+
       socket.leave(socket.data.roomId);
       if (mode === 'training' && !rooms.has(targetRoomId)) {
+        if (rooms.size > MAX_TRAINING_ROOMS) return; // 同時トレーニング部屋数の上限に達している
         const trainingRoom = new Room(targetRoomId, io);
         trainingRoom.isTraining = true;
         rooms.set(targetRoomId, trainingRoom);
@@ -109,7 +147,7 @@ io.on('connection', (socket) => {
 
   // 「モード選択に戻る」で明示的に部屋を離れる。画面ロック等の一時切断とは違い、
   // 猶予時間を待たずすぐにプレイヤーを消し、トレーニング部屋なら空になり次第すぐ破棄する。
-  socket.on('leave', () => {
+  onLimited('leave', () => {
     const room = getRoomForSocket(socket);
     if (room) {
       const clientId = socket.data.clientId;
@@ -129,7 +167,7 @@ io.on('connection', (socket) => {
     socket.join(DEFAULT_ROOM_ID);
   });
 
-  socket.on('game:setDifficulty', (payload) => {
+  onLimited('game:setDifficulty', (payload) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { difficulty: d } = payload || {};
@@ -139,7 +177,7 @@ io.on('connection', (socket) => {
     room.broadcastState();
   });
 
-  socket.on('game:setCpu', (payload) => {
+  onLimited('game:setCpu', (payload) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { enabled } = payload || {};
@@ -152,7 +190,7 @@ io.on('connection', (socket) => {
     room.broadcastState();
   });
 
-  socket.on('game:setWinScore', (payload) => {
+  onLimited('game:setWinScore', (payload) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { winScore } = payload || {};
@@ -163,7 +201,7 @@ io.on('connection', (socket) => {
     room.broadcastState();
   });
 
-  socket.on('game:setQuestionLimit', (payload) => {
+  onLimited('game:setQuestionLimit', (payload) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { questionLimit } = payload || {};
@@ -174,7 +212,7 @@ io.on('connection', (socket) => {
     room.broadcastState();
   });
 
-  socket.on('game:start', () => {
+  onLimited('game:start', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     if (!room.players.has(socket.data.clientId) || room.started) return;
@@ -184,7 +222,7 @@ io.on('connection', (socket) => {
     room.drawAndOpenNextQuestion();
   });
 
-  socket.on('game:end', () => {
+  onLimited('game:end', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     if (!room.players.has(socket.data.clientId) || !room.started) return;
@@ -216,7 +254,7 @@ io.on('connection', (socket) => {
     room.broadcastState();
   });
 
-  socket.on('player:buzz', () => {
+  onLimited('player:buzz', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     if (!room.started || room.phase !== 'open') return;
@@ -235,7 +273,7 @@ io.on('connection', (socket) => {
     room.advanceLetterOrFinish();
   });
 
-  socket.on('player:answer', (payload) => {
+  onLimited('player:answer', (payload) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { choice } = payload || {};
