@@ -306,46 +306,99 @@ button:disabled {
 
 .difficulty-btns {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .difficulty-btn {
   flex: 1;
-  padding: 10px 2px;
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 14px 2px 12px;
+  border-radius: 16px;
   border: 2px solid #c7cbdb;
   background: #ffffff;
-  color: #555a6e;
+  color: #7a8099;
   cursor: pointer;
-  font-size: 0.7rem;
-  white-space: nowrap;
+  font-family: "M PLUS Rounded 1c", "Hiragino Sans", "Yu Gothic", sans-serif;
+  transition: transform 0.12s cubic-bezier(.34, 1.56, .64, 1), border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
-/* 「（かんたん）」等の括弧書き部分は、途中の中途半端な位置で改行されないように
-   ひとまとまりとして扱う（文字と括弧書きの間でしか改行が起きないようにする）。 */
-.difficulty-label {
+.difficulty-name {
+  font-size: 1.35rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.difficulty-desc {
+  font-size: 0.82rem;
+  font-weight: bold;
   white-space: nowrap;
 }
 
 .difficulty-btn.active {
-  border-color: #5b8cff;
-  background: #5b8cff1a;
-  color: #2b4fb0;
-  font-weight: bold;
+  background: #4c7bff;
+  border-color: #4c7bff;
+  color: #fff;
+  box-shadow: 0 6px 0 #2b4fb0;
+  transform: translateY(-2px);
+}
+
+.difficulty-btn:active {
+  transform: translateY(2px);
+  box-shadow: none;
 }
 
 .cpu-toggle {
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  font-size: 0.9rem;
+  background: #eceef5;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 0.92rem;
+  font-weight: bold;
   cursor: pointer;
 }
 
+/* ネイティブのチェックボックスをスイッチ風の見た目に置き換える。
+   要素自体はチェックボックスのまま（checked/change/disabledがそのまま使える）。 */
 .cpu-toggle input {
-  width: 18px;
-  height: 18px;
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 46px;
+  height: 26px;
+  margin: 0;
+  border-radius: 999px;
+  background: #c7cbdb;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.2s ease;
+}
+
+.cpu-toggle input::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.cpu-toggle input:checked {
+  background: #4c7bff;
+}
+
+.cpu-toggle input:checked::after {
+  transform: translateX(20px);
 }
 
 .room-settings {
@@ -354,23 +407,87 @@ button:disabled {
   gap: 10px;
 }
 
-.setting-field {
+.stepper-field {
   flex: 1;
+  background: #eceef5;
+  border-radius: 14px;
+  padding: 8px 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 0.8rem;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepper-label {
+  font-size: 0.74rem;
+  font-weight: bold;
   color: #555a6e;
 }
 
-.setting-field input[type="number"] {
-  padding: 10px;
+.stepper-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.step-btn {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: none;
+  background: #4c7bff;
+  color: #fff;
+  font-weight: 900;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #2b4fb0;
+}
+
+.step-btn:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.stepper-controls input[type="number"] {
+  width: 3.2em;
+  padding: 6px 2px;
   border-radius: 10px;
   border: 2px solid #c7cbdb;
   background: #ffffff;
   color: #1a1a2e;
-  font-size: 1rem;
-  width: 100%;
+  font-size: 1.05rem;
+  text-align: center;
+}
+
+/* Chromeなどのスピンボタン（↑↓）は±ボタンと役割が重複するので非表示にする */
+.stepper-controls input[type="number"]::-webkit-outer-spin-button,
+.stepper-controls input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.stepper-controls input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+#start-game-btn {
+  font-family: "M PLUS Rounded 1c", "Hiragino Sans", "Yu Gothic", sans-serif;
+  font-weight: 900;
+  font-size: 1.05rem;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #6d97ff, #4c7bff);
+  box-shadow: 0 6px 0 #2b4fb0;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+
+#start-game-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #2b4fb0;
 }
 
 #end-game-btn {

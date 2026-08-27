@@ -45,23 +45,40 @@
     <div id="setup-panel" class="setup-panel">
       <p class="setup-label">難易度を選んでください</p>
       <div class="difficulty-btns">
-        <button class="difficulty-btn" data-difficulty="C">C<span class="difficulty-label">（かんたん）</span></button>
-        <button class="difficulty-btn active" data-difficulty="B">B<span class="difficulty-label">（ふつう）</span></button>
-        <button class="difficulty-btn" data-difficulty="A">A<span class="difficulty-label">（むずかしい）</span></button>
+        <button class="difficulty-btn" data-difficulty="C">
+          <span class="difficulty-name">C</span>
+          <span class="difficulty-desc">かんたん</span>
+        </button>
+        <button class="difficulty-btn active" data-difficulty="B">
+          <span class="difficulty-name">B</span>
+          <span class="difficulty-desc">ふつう</span>
+        </button>
+        <button class="difficulty-btn" data-difficulty="A">
+          <span class="difficulty-name">A</span>
+          <span class="difficulty-desc">むずかしい</span>
+        </button>
       </div>
       <label class="cpu-toggle">
+        <span class="cpu-toggle-label">CPU対戦相手を参加させる</span>
         <input type="checkbox" id="cpu-toggle-checkbox" />
-        CPU対戦相手を参加させる
       </label>
       <div class="room-settings">
-        <label class="setting-field">
-          先取点数
-          <input type="number" id="win-score-input" min="0" max="99" placeholder="制限なし" />
-        </label>
-        <label class="setting-field">
-          出題数上限
-          <input type="number" id="question-limit-input" min="0" max="99" placeholder="制限なし" />
-        </label>
+        <div class="stepper-field">
+          <span class="stepper-label">🏆 先取点数</span>
+          <div class="stepper-controls">
+            <button type="button" class="step-btn" data-step-target="win-score-input" data-step-delta="-1">－</button>
+            <input type="number" id="win-score-input" min="0" max="99" placeholder="制限なし" inputmode="numeric" />
+            <button type="button" class="step-btn" data-step-target="win-score-input" data-step-delta="1">＋</button>
+          </div>
+        </div>
+        <div class="stepper-field">
+          <span class="stepper-label">📋 出題数上限</span>
+          <div class="stepper-controls">
+            <button type="button" class="step-btn" data-step-target="question-limit-input" data-step-delta="-1">－</button>
+            <input type="number" id="question-limit-input" min="0" max="99" placeholder="制限なし" inputmode="numeric" />
+            <button type="button" class="step-btn" data-step-target="question-limit-input" data-step-delta="1">＋</button>
+          </div>
+        </div>
       </div>
       <button id="start-game-btn">ゲーム開始</button>
     </div>

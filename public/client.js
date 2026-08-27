@@ -192,6 +192,19 @@ questionLimitInput.addEventListener('change', () => {
   socket.emit('game:setQuestionLimit', { questionLimit: questionLimitInput.value === '' ? 0 : Number(questionLimitInput.value) });
 });
 
+// 先取点数・出題数上限の±ボタン。対象のinputの値を直接書き換えてchangeイベントを
+// 発火させることで、上のリスナー（サーバーへの送信）をそのまま再利用する。
+document.querySelectorAll('.step-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.dataset.stepTarget);
+    const delta = Number(btn.dataset.stepDelta);
+    const current = target.value === '' ? 0 : Number(target.value);
+    const next = Math.max(0, Math.min(99, current + delta));
+    target.value = next > 0 ? next : '';
+    target.dispatchEvent(new Event('change'));
+  });
+});
+
 startGameBtn.addEventListener('click', () => socket.emit('game:start'));
 
 // 「終了」は誤タップで即ゲームが終わってしまわないよう、確認ポップアップを挟む。
