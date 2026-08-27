@@ -20,8 +20,36 @@ const rooms = new Map();
 rooms.set(DEFAULT_ROOM_ID, new Room(DEFAULT_ROOM_ID, io));
 
 // トレーニング部屋はclientIdを詐称して連打されると無制限に増え続けメモリを圧迫できてしまうため、
-// 同時に存在できる数の上限を設ける（既定部屋は含まない）。
-const MAX_TRAINING_ROOMS = 500;
+// 同時に存在できる数の上限を設ける（既定部屋は含まない）。あくまで異常事態向けの緊急ブレーキであり、
+// 正常な利用者数を制限する値ではない（Room 1つのメモリ消費はごく小さいため大きめに取ってある）。
+const MAX_TRAINING_ROOMS = 5000;
+
+// 同一IPからの部屋「新規作成」だけを対象にした頻度制限（既存部屋への再参加は対象外）。
+// 学校や家庭など同じIPを複数人で共有している状況でも困らないよう、余裕を持った値にしてある。
+const ROOM_CREATION_WINDOW_MS = 60000;
+const ROOM_CREATION_MAX_PER_WINDOW = 20;
+const roomCreationTimestamps = new Map(); // ip -> 直近の作成時刻の配列
+
+function getClientIp(socket) {
+  // Renderなどのリバースプロキシ配下では実際の接続元IPがX-Forwarded-Forに入る。
+  const xff = socket.handshake.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.trim()) return xff.split(',')[0].trim();
+  return socket.handshake.address;
+}
+
+function canCreateRoom(ip) {
+  const now = Date.now();
+  const timestamps = (roomCreationTimestamps.get(ip) || []).filter(
+    (t) => now - t < ROOM_CREATION_WINDOW_MS
+  );
+  if (timestamps.length >= ROOM_CREATION_MAX_PER_WINDOW) {
+    roomCreationTimestamps.set(ip, timestamps);
+    return false;
+  }
+  timestamps.push(now);
+  roomCreationTimestamps.set(ip, timestamps);
+  return true;
+}
 
 function getRoomForSocket(socket) {
   return rooms.get(socket.data.roomId);
@@ -115,7 +143,8 @@ io.on('connection', (socket) => {
 
       socket.leave(socket.data.roomId);
       if (mode === 'training' && !rooms.has(targetRoomId)) {
-        if (rooms.size > MAX_TRAINING_ROOMS) return; // 同時トレーニング部屋数の上限に達している
+        if (rooms.size > MAX_TRAINING_ROOMS) return; // 同時トレーニング部屋数の上限に達している（緊急ブレーキ）
+        if (!canCreateRoom(getClientIp(socket))) return; // 同一IPからの新規作成が頻度制限を超えている
         const trainingRoom = new Room(targetRoomId, io);
         trainingRoom.isTraining = true;
         rooms.set(targetRoomId, trainingRoom);
