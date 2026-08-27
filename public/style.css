@@ -385,17 +385,28 @@ button:disabled {
   50% { opacity: 0; }
 }
 
-/* 正解発表時、問題文の枠の右下に「A.答え」を重ねて表示する。 */
+/* 正解発表時、問題文の枠の右下に「A.答え」（正式表記＋判定用の読み）を重ねて表示する。 */
 .answer-reveal-label {
   position: absolute;
   right: 8px;
   bottom: 6px;
   background: rgba(255, 255, 255, 0.92);
+  padding: 3px 8px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.answer-reveal-answer {
   color: #d1453a;
   font-weight: bold;
   font-size: 1.2rem;
-  padding: 3px 8px;
-  border-radius: 8px;
+}
+
+.answer-reveal-input {
+  color: #555a6e;
+  font-size: 0.8rem;
 }
 
 .status-banner {

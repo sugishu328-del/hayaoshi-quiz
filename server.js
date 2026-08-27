@@ -126,6 +126,7 @@ io.on('connection', (socket) => {
     room.resolvedCount = 0;
     room.letterChoices = [];
     room.revealedAnswer = '';
+    room.revealedInput = '';
     room.buzzedId = null;
     room.wrongLetterChoice = null;
     room.wrongTimedOut = false;

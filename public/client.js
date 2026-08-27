@@ -206,6 +206,8 @@ const playerList = document.getElementById('player-list');
 const questionNumberEl = document.getElementById('question-number');
 const questionDisplay = document.getElementById('question-display');
 const answerRevealLabel = document.getElementById('answer-reveal-label');
+const answerRevealAnswerEl = document.getElementById('answer-reveal-answer');
+const answerRevealInputEl = document.getElementById('answer-reveal-input');
 const letterTimerEl = document.getElementById('letter-timer');
 
 // 誰かが解答中（buzzed）、または誤答直後（wrong）は、問題文の上に
@@ -372,6 +374,7 @@ function updateQuestionReveal(el, text, phase) {
 let currentPhase = null;
 let currentNoBuzzDeadline = null;
 let latestRevealedAnswer = null;
+let latestRevealedInput = null;
 let lastSfxPhase = null; // 出題・正解・不正解の効果音を、フェーズが切り替わった瞬間だけ鳴らすための直前値
 let sfxPhaseInitialized = false; // 参加/再接続した直後の最初のstateでは、進行中のフェーズを誤って「切り替わった」と判定しないようにする
 
@@ -390,7 +393,10 @@ function tickNoBuzzCountdown() {
 function tickAnswerRevealLabel() {
   const isTypingDone = revealState.text !== null && revealState.index >= revealState.text.length;
   const show = currentPhase === 'reveal' || (currentPhase === 'correctReveal' && isTypingDone);
-  answerRevealLabel.textContent = `A.${latestRevealedAnswer || ''}`;
+  answerRevealAnswerEl.textContent = `A.${latestRevealedAnswer || ''}`;
+  // 判定用の読み・短縮形は、正式表記と同じ場合は二重表示せず省略する。
+  const showInputLine = !!latestRevealedInput && latestRevealedInput !== latestRevealedAnswer;
+  answerRevealInputEl.textContent = showInputLine ? latestRevealedInput : '';
   answerRevealLabel.classList.toggle('hidden', !show);
 }
 
@@ -411,6 +417,7 @@ socket.on('state', (state) => {
     answerProgress,
     letterChoices,
     revealedAnswer,
+    revealedInput,
     noBuzzDeadline,
     wrongLetterChoice,
     wrongTimedOut,
@@ -497,7 +504,7 @@ socket.on('state', (state) => {
     wrongResultLetter.textContent = wrongTimedOut ? '時間切れ' : (wrongLetterChoice || '');
   }
   if (showCorrect) {
-    correctResultLetter.textContent = revealedAnswer || '';
+    correctResultLetter.textContent = revealedInput || '';
   }
   answerProgressText.textContent = answerProgress || '';
   updateLetterCountdown(showProgress, (answerProgress || '').length, !!isFirstLetterChoice);
@@ -511,6 +518,7 @@ socket.on('state', (state) => {
   // 正解発表時は、問題文の枠の右下に「A.答え」を重ねて表示する
   // （correctRevealのときは残りの問題文が表示し終わるまでtickAnswerRevealLabelが隠す）。
   latestRevealedAnswer = revealedAnswer;
+  latestRevealedInput = revealedInput;
   tickAnswerRevealLabel();
 
   statusBanner.classList.add('invisible');

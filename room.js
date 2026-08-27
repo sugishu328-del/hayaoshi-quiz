@@ -48,7 +48,8 @@ class Room {
     this.currentDistractors = []; // 現在の問題のもっともらしい誤答（1文字目の選択肢作りに使う。{name, input}の配列）
     this.resolvedCount = 0; // answerの先頭から何文字確定したか（スキップ文字も含む）
     this.letterChoices = []; // 現在の文字位置の4択
-    this.revealedAnswer = '';
+    this.revealedAnswer = ''; // 正解発表時の正式表記（questions.jsonのanswer）
+    this.revealedInput = ''; // 正解発表時の判定用表記（questions.jsonのinput。読みや短縮形）
     this.buzzedId = null;
     this.noBuzzDeadline = null; // 「誰も押さないまま自動で正解発表になる」時刻（クライアントのカウントダウン表示用）
     this.questionRevealedMs = 0; // この問題文がこれまでに表示され進んだ合計時間（誤答で中断された分は除く）
@@ -142,6 +143,7 @@ class Room {
       question: this.question,
       questionNumber: this.questionNumber,
       revealedAnswer: this.revealedAnswer,
+      revealedInput: this.revealedInput,
       noBuzzDeadline: this.noBuzzDeadline,
       wrongLetterChoice: this.wrongLetterChoice,
       wrongTimedOut: this.wrongTimedOut,
@@ -229,6 +231,7 @@ class Room {
     const p = this.players.get(this.buzzedId);
     if (p) p.score += 1;
     this.revealedAnswer = this.displayAnswer;
+    this.revealedInput = this.answer;
     this.buzzedId = null;
     this.resolvedCount = 0;
     this.letterChoices = [];
@@ -342,6 +345,7 @@ class Room {
     this.cancelAllTimers();
     this.phase = 'reveal';
     this.revealedAnswer = this.displayAnswer;
+    this.revealedInput = this.answer;
     this.buzzedId = null;
     this.resolvedCount = 0;
     this.letterChoices = [];
@@ -383,6 +387,7 @@ class Room {
     this.resolvedCount = 0;
     this.letterChoices = [];
     this.revealedAnswer = '';
+    this.revealedInput = '';
     this.buzzedId = null;
     this.wrongLetterChoice = null;
     this.wrongTimedOut = false;
