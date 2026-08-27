@@ -120,10 +120,6 @@ function buildFirstLetterChoices(correctChar, distractors) {
   return shuffleArray(candidates);
 }
 
-function countGuessableChars(str) {
-  return [...str].filter((ch) => !SKIP_CHARS.has(ch)).length;
-}
-
 // ---- CPU対戦相手（参加は任意、正答率は難易度に応じる） ----
 const CPU_ID = 'cpu';
 const CPU_ACCURACY = { A: 0.3, B: 0.6, C: 0.9 }; // A=むずかしい, C=かんたん
@@ -148,7 +144,6 @@ module.exports = {
   shuffleArray,
   buildLetterChoices,
   buildFirstLetterChoices,
-  countGuessableChars,
   CPU_ID,
   CPU_ACCURACY,
   DISCONNECT_GRACE_MS,

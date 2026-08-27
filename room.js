@@ -3,7 +3,6 @@ const {
   SKIP_CHARS,
   buildLetterChoices,
   buildFirstLetterChoices,
-  countGuessableChars,
   CPU_ID,
   CPU_ACCURACY,
   TYPEWRITER_SPEED_MS,
@@ -296,8 +295,11 @@ class Room {
       this.isFirstLetterPick = true;
       this.cpuStepIndex = 0;
       this.cpuWillSucceed = Math.random() < (CPU_ACCURACY[this.difficulty] ?? 0.5);
-      const guessableCount = countGuessableChars(this.answer);
-      this.cpuMistakeAt = this.cpuWillSucceed ? -1 : Math.floor(Math.random() * Math.max(guessableCount, 1));
+      // 間違えるときは必ず1文字目にする。1文字目だけは「もっともらしい別の答え」の頭文字が
+      // 選択肢に混ざる（buildFirstLetterChoices）ため、間違え方として不自然に見えない。
+      // 2文字目以降はただの同種文字からのランダム選択肢なので、そこで間違えると
+      // （文脈上ほぼ答えが確定しているのに間違える、という）不自然な間違え方になってしまう。
+      this.cpuMistakeAt = this.cpuWillSucceed ? -1 : 0;
       this.phase = 'buzzed';
       this.advanceLetterOrFinish();
     }, reactionDelay);
