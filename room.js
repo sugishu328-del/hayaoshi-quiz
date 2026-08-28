@@ -404,7 +404,9 @@ class Room {
         this.countdownValue--;
         if (this.countdownValue <= 0) {
           this.countdownValue = null;
-          this.drawAndOpenNextQuestion();
+          // カウントダウンで既に「もうすぐ始まる」ことは伝わっているので、通常の問題間で
+          // 挟む「第N問」演出（ANNOUNCE_DELAY_MS）は省略し、そのまま出題する。
+          this.drawAndOpenNextQuestion({ skipAnnounce: true });
           return;
         }
         this.broadcastState();
@@ -414,7 +416,7 @@ class Room {
     tick();
   }
 
-  drawAndOpenNextQuestion() {
+  drawAndOpenNextQuestion({ skipAnnounce = false } = {}) {
     if (this.questionLimit > 0 && this.questionNumber >= this.questionLimit) {
       this.enterGameOver();
       return;
@@ -443,16 +445,26 @@ class Room {
     this.questionTypingStartedAt = null;
     this.questionOpenedAt = null;
     this.lockedOut.clear();
-    this.phase = 'announce';
-    this.broadcastState();
-    this.advanceTimer = setTimeout(() => {
-      this.advanceTimer = null;
-      if (!this.started) return;
+
+    const openNow = () => {
       this.phase = 'open';
       this.questionOpenedAt = Date.now();
       this.scheduleNoBuzzTimer();
       this.broadcastState();
       this.scheduleCpuBuzzIfNeeded();
+    };
+
+    if (skipAnnounce) {
+      openNow();
+      return;
+    }
+
+    this.phase = 'announce';
+    this.broadcastState();
+    this.advanceTimer = setTimeout(() => {
+      this.advanceTimer = null;
+      if (!this.started) return;
+      openNow();
     }, ANNOUNCE_DELAY_MS);
   }
 }
