@@ -1,5 +1,19 @@
 const socket = io();
 
+// crypto.randomUUID()はセキュアコンテキスト（httpsまたはlocalhost）でしか使えないため、
+// スマホ実機からLAN内のIPアドレス（http://192.168.x.x など）で開いた場合は使えず、
+// 呼び出すと例外で処理全体が止まってしまう。その場合は簡易的なID生成にフォールバックする。
+function generateId() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // clientIdはこのブラウザに永続的に紐づく識別子（localStorageに保存）。socket.idは
 // 再接続のたびに変わってしまうが、これを使うことで切断→再接続してもサーバー側で
 // 同一人物として認識され、スコアを引き継げる。
@@ -8,13 +22,13 @@ function getClientId() {
   try {
     let id = localStorage.getItem(key);
     if (!id) {
-      id = crypto.randomUUID();
+      id = generateId();
       localStorage.setItem(key, id);
     }
     return id;
   } catch (e) {
     // プライベートブラウジング等でlocalStorageが使えない場合は、その場限りのIDで動かす
-    return crypto.randomUUID();
+    return generateId();
   }
 }
 const clientId = getClientId();

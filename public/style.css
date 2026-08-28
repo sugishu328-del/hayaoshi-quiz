@@ -2,6 +2,46 @@
   box-sizing: border-box;
 }
 
+/* ---- 配色トークン ----
+   これまで#5b8cff/#4c7bff/#2b4fb0のような似た青がバラバラに使われていたのを
+   1つのブランドカラー(藍色寄りのバイオレット)に統一する。カード類は枠線ではなく
+   影(elevation)で背景から浮かせて立体感を出す。 */
+:root {
+  --color-bg: #eef0fa;
+  --color-bg-alt: #e5e8f7;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f2f3fb;
+  --color-border: #e1e3f0;
+  --color-border-strong: #ccd0e6;
+
+  --color-text: #1a1a2e;
+  --color-text-muted: #5b5f7a;
+  --color-text-faint: #8488a3;
+
+  --color-primary: #5b4fe8;
+  --color-primary-soft: #7c72f0;
+  --color-primary-dark: #3b2fa0;
+  --color-primary-light: #ece9fb;
+
+  --color-accent: #ff8a3d;
+  --color-accent-dark: #c4661d;
+
+  --color-danger: #ff4d4d;
+  --color-danger-dark: #a30000;
+
+  --color-correct: #d1453a;
+  --color-wrong: #2b6fd1;
+
+  --color-gold: #ffb020;
+  --color-gold-light: #fff6e0;
+
+  --color-neutral-btn: #7d82a0;
+
+  --shadow-raised: 0 1px 2px rgba(32, 30, 80, 0.05), 0 10px 24px rgba(32, 30, 80, 0.09);
+  --shadow-raised-sm: 0 1px 2px rgba(32, 30, 80, 0.05), 0 4px 10px rgba(32, 30, 80, 0.07);
+  --shadow-inset: inset 0 1px 3px rgba(32, 30, 80, 0.07);
+}
+
 html, body {
   height: 100%;
   margin: 0;
@@ -9,8 +49,9 @@ html, body {
 
 body {
   font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
-  background: #ffffff;
-  color: #1a1a2e;
+  background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-alt) 100%);
+  background-attachment: fixed;
+  color: var(--color-text);
   overscroll-behavior: none;
 }
 
@@ -61,9 +102,9 @@ h1 {
   font-weight: 900;
   font-size: 2.1rem;
   color: #ffffff;
-  -webkit-text-stroke: 6px #5b8cff;
+  -webkit-text-stroke: 6px var(--color-primary);
   paint-order: stroke fill;
-  text-shadow: 0 4px 0 rgba(43, 79, 176, 0.25);
+  text-shadow: 0 4px 0 rgba(59, 47, 160, 0.25);
 }
 
 .mode-select {
@@ -79,14 +120,15 @@ h1 {
   gap: 3px;
   padding: 14px;
   border-radius: 14px;
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .mode-btn-training {
-  background: #5b8cff;
+  background: var(--color-primary);
 }
 
 .mode-btn-friend {
-  background: #ff8a3d;
+  background: var(--color-accent);
 }
 
 .mode-btn-title {
@@ -101,21 +143,21 @@ h1 {
 
 .card {
   width: 100%;
-  background: #f4f5f9;
-  border: 1px solid #e0e2eb;
+  background: var(--color-surface);
   border-radius: 16px;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: var(--shadow-raised);
 }
 
 input[type="text"] {
   padding: 12px;
   border-radius: 10px;
-  border: 2px solid #c7cbdb;
-  background: #ffffff;
-  color: #1a1a2e;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 1rem;
 }
 
@@ -125,7 +167,7 @@ button {
   border: none;
   font-size: 1rem;
   cursor: pointer;
-  background: #5b8cff;
+  background: var(--color-primary);
   color: #fff;
 }
 
@@ -160,7 +202,7 @@ button:disabled {
   justify-self: center;
   font-weight: bold;
   font-size: 1rem;
-  color: #2b4fb0;
+  color: var(--color-primary-dark);
 }
 
 .back-btn {
@@ -176,8 +218,8 @@ button:disabled {
 .player-bar {
   flex: 0 0 auto;
   width: 100%;
-  background: #f4f5f9;
-  border-bottom: 1px solid #e0e2eb;
+  background: var(--color-surface-alt);
+  border-bottom: 1px solid var(--color-border);
   padding: 14px;
 }
 
@@ -204,13 +246,14 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  background: #ffffff;
+  background: var(--color-surface);
   /* 早押し中(.buzzed)は枠線の「色」だけを変えて強調する。太さ(border-width)を
      変えると、高さがauto(コンテンツに合わせる)なぶん枠線の太さの分だけ実際に
      カードの高さが変わってバーがガタつくため、太さは常に同じにしておく。 */
-  border: 2px solid #e0e2eb;
+  border: 2px solid var(--color-border);
   padding: 8px 6px;
   border-radius: 14px;
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .player-avatar {
@@ -219,7 +262,7 @@ button:disabled {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #5b8cff;
+  background: var(--color-primary);
   color: #fff;
   font-weight: bold;
   font-size: 1.15rem;
@@ -236,14 +279,14 @@ button:disabled {
   white-space: nowrap;
   font-size: 0.8rem;
   font-weight: bold;
-  color: #1a1a2e;
+  color: var(--color-text);
 }
 
 .player-score {
   flex-shrink: 0;
   font-size: 0.8rem;
   font-weight: bold;
-  color: #555a6e;
+  color: var(--color-text-muted);
 }
 
 /* アイコンの右上に重ねて表示する（カードの高さが変わって参加者バー全体の位置が
@@ -254,7 +297,7 @@ button:disabled {
   right: -10px;
   padding: 1px 4px;
   border-radius: 6px;
-  background: #ff8a3d;
+  background: var(--color-accent);
   color: #fff;
   font-size: 0.6rem;
   font-weight: bold;
@@ -271,7 +314,7 @@ button:disabled {
 }
 
 .player-list li.buzzed {
-  border-color: #ff4d4d;
+  border-color: var(--color-danger);
 }
 
 .game-body {
@@ -289,19 +332,19 @@ button:disabled {
 
 .setup-panel {
   width: 100%;
-  background: #f4f5f9;
-  border: 1px solid #e0e2eb;
+  background: var(--color-surface);
   border-radius: 16px;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: var(--shadow-raised);
 }
 
 .setup-label {
   margin: 0;
   font-size: 0.9rem;
-  color: #555a6e;
+  color: var(--color-text-muted);
 }
 
 .difficulty-btns {
@@ -317,9 +360,9 @@ button:disabled {
   gap: 3px;
   padding: 14px 2px 12px;
   border-radius: 16px;
-  border: 2px solid #c7cbdb;
-  background: #ffffff;
-  color: #7a8099;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-faint);
   cursor: pointer;
   font-family: "M PLUS Rounded 1c", "Hiragino Sans", "Yu Gothic", sans-serif;
   transition: transform 0.12s cubic-bezier(.34, 1.56, .64, 1), border-color 0.15s, background 0.15s, color 0.15s, box-shadow 0.15s;
@@ -338,10 +381,10 @@ button:disabled {
 }
 
 .difficulty-btn.active {
-  background: #4c7bff;
-  border-color: #4c7bff;
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
-  box-shadow: 0 6px 0 #2b4fb0;
+  box-shadow: 0 6px 0 var(--color-primary-dark);
   transform: translateY(-2px);
 }
 
@@ -356,7 +399,8 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: #eceef5;
+  background: var(--color-surface-alt);
+  box-shadow: var(--shadow-inset);
   border-radius: 14px;
   padding: 10px 14px;
   font-size: 0.92rem;
@@ -374,7 +418,7 @@ button:disabled {
   height: 26px;
   margin: 0;
   border-radius: 999px;
-  background: #c7cbdb;
+  background: var(--color-border-strong);
   cursor: pointer;
   flex: 0 0 auto;
   transition: background 0.2s ease;
@@ -394,7 +438,7 @@ button:disabled {
 }
 
 .cpu-toggle input:checked {
-  background: #4c7bff;
+  background: var(--color-primary);
 }
 
 .cpu-toggle input:checked::after {
@@ -409,7 +453,8 @@ button:disabled {
 
 .stepper-field {
   flex: 1;
-  background: #eceef5;
+  background: var(--color-surface-alt);
+  box-shadow: var(--shadow-inset);
   border-radius: 14px;
   padding: 8px 8px 10px;
   display: flex;
@@ -421,7 +466,7 @@ button:disabled {
 .stepper-label {
   font-size: 0.74rem;
   font-weight: bold;
-  color: #555a6e;
+  color: var(--color-text-muted);
 }
 
 .stepper-controls {
@@ -438,13 +483,13 @@ button:disabled {
   padding: 0;
   border-radius: 50%;
   border: none;
-  background: #4c7bff;
+  background: var(--color-primary);
   color: #fff;
   font-weight: 900;
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 3px 0 #2b4fb0;
+  box-shadow: 0 3px 0 var(--color-primary-dark);
 }
 
 .step-btn:active {
@@ -456,9 +501,9 @@ button:disabled {
   width: 3.2em;
   padding: 6px 2px;
   border-radius: 10px;
-  border: 2px solid #c7cbdb;
-  background: #ffffff;
-  color: #1a1a2e;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
   font-size: 1.05rem;
   text-align: center;
 }
@@ -480,26 +525,26 @@ button:disabled {
   font-size: 1.05rem;
   padding: 16px;
   border-radius: 18px;
-  background: linear-gradient(160deg, #6d97ff, #4c7bff);
-  box-shadow: 0 6px 0 #2b4fb0;
+  background: linear-gradient(160deg, var(--color-primary-soft), var(--color-primary));
+  box-shadow: 0 6px 0 var(--color-primary-dark);
   transition: transform 0.08s, box-shadow 0.08s;
 }
 
 #start-game-btn:active {
   transform: translateY(4px);
-  box-shadow: 0 2px 0 #2b4fb0;
+  box-shadow: 0 2px 0 var(--color-primary-dark);
 }
 
 #end-game-btn {
   padding: 5px 10px;
   font-size: 0.7rem;
-  background: #8a90a8;
+  background: var(--color-neutral-btn);
 }
 
 .back-btn {
   padding: 5px 10px;
   font-size: 0.7rem;
-  background: #8a90a8;
+  background: var(--color-neutral-btn);
 }
 
 .play-panel {
@@ -536,18 +581,19 @@ button:disabled {
   text-align: center;
   font-size: 1.7rem;
   font-weight: bold;
-  color: #2b4fb0;
+  color: var(--color-primary-dark);
 }
 
 .question-display {
-  background: #eef2ff;
-  border: 2px solid #5b8cff;
+  background: var(--color-primary-light);
+  border: 2px solid var(--color-primary);
   border-radius: 12px;
   padding: 10px 12px;
   font-size: 0.95rem;
   line-height: 1.4;
   white-space: pre-wrap;
   overflow-y: auto;
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .question-display.revealing::after {
@@ -556,7 +602,7 @@ button:disabled {
   width: 0.5em;
   height: 1em;
   margin-left: 2px;
-  background: #2e9e5b;
+  background: var(--color-primary);
   vertical-align: text-bottom;
   animation: blink-cursor 0.8s step-end infinite;
 }
@@ -580,13 +626,13 @@ button:disabled {
 }
 
 .answer-reveal-answer {
-  color: #d1453a;
+  color: var(--color-correct);
   font-weight: bold;
   font-size: 1.2rem;
 }
 
 .answer-reveal-input {
-  color: #555a6e;
+  color: var(--color-text-muted);
   font-size: 0.8rem;
 }
 
@@ -601,8 +647,8 @@ button:disabled {
 }
 
 .status-banner.countdown {
-  background: #eceef4;
-  color: #555a6e;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
 }
 
 /* 誰かが解答中（buzzed）のときに、問題文の上へ半透明の背景つきポップアップで出す。 */
@@ -622,15 +668,15 @@ button:disabled {
   max-width: 380px;
   /* 問題文が隠れないよう、画面中央からもう少し下に表示する */
   margin-top: 14vh;
-  background: linear-gradient(180deg, #ffffff 0%, #f5f6fa 100%);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  background: linear-gradient(180deg, #ffffff 0%, var(--color-surface-alt) 100%);
+  border: 1px solid rgba(32, 30, 80, 0.05);
   border-radius: 16px;
   padding: 12px 14px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
     0 1px 0 rgba(255, 255, 255, 0.5),
-    0 6px 0 rgba(0, 0, 0, 0.1),
-    0 24px 48px rgba(0, 0, 0, 0.4);
+    0 6px 0 rgba(32, 30, 80, 0.08),
+    0 24px 48px rgba(32, 30, 80, 0.35);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -668,19 +714,19 @@ button:disabled {
 .wrong-result-icon {
   font-size: 4.2rem;
   font-weight: bold;
-  color: #2b6fd1;
+  color: var(--color-wrong);
 }
 
 .wrong-result-label {
   font-size: 3.5rem;
   font-weight: bold;
-  color: #2b6fd1;
+  color: var(--color-wrong);
 }
 
 .wrong-result-letter {
   font-size: 1.4rem;
   font-weight: bold;
-  color: #555a6e;
+  color: var(--color-text-muted);
 }
 
 /* 正解し終えた瞬間、同じカードの中身をこちらに切り替えて表示する。 */
@@ -703,26 +749,26 @@ button:disabled {
 .correct-result-icon {
   font-size: 4.2rem;
   font-weight: bold;
-  color: #d1453a;
+  color: var(--color-correct);
 }
 
 .correct-result-label {
   font-size: 3.5rem;
   font-weight: bold;
-  color: #d1453a;
+  color: var(--color-correct);
 }
 
 .correct-result-letter {
   font-size: 1.4rem;
   font-weight: bold;
-  color: #555a6e;
+  color: var(--color-text-muted);
 }
 
 
 .buzz-card-status {
   flex: 1;
   font-weight: bold;
-  color: #1a1a2e;
+  color: var(--color-text);
 }
 
 /* 「終了」ボタンの誤タップ防止用の確認ポップアップ（buzz-cardと同じ見た目を使い回す）。 */
@@ -737,7 +783,7 @@ button:disabled {
   margin: 0;
   font-size: 1.05rem;
   font-weight: bold;
-  color: #1a1a2e;
+  color: var(--color-text);
 }
 
 .end-confirm-actions {
@@ -751,12 +797,12 @@ button:disabled {
 }
 
 .end-confirm-cancel {
-  background: #c7cbdb;
-  color: #1a1a2e;
+  background: var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .end-confirm-ok {
-  background: #ff4d4d;
+  background: var(--color-danger);
 }
 
 /* ゲーム終了（先取点数・出題数上限に到達）の結果画面 */
@@ -771,7 +817,7 @@ button:disabled {
   margin: 0;
   font-size: 1.3rem;
   font-weight: bold;
-  color: #2b4fb0;
+  color: var(--color-primary-dark);
 }
 
 .game-over-ranking {
@@ -793,37 +839,38 @@ button:disabled {
   justify-content: space-between;
   padding: 10px 12px;
   border-radius: 10px;
-  background: #f4f5f9;
-  border: 2px solid #e0e2eb;
+  background: var(--color-surface-alt);
+  border: 2px solid var(--color-border);
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .game-over-ranking li.winner {
-  border-color: #ffb020;
-  background: #fff6e0;
+  border-color: var(--color-gold);
+  background: var(--color-gold-light);
 }
 
 .game-over-name {
   font-weight: bold;
-  color: #1a1a2e;
+  color: var(--color-text);
 }
 
 .game-over-score {
   font-weight: bold;
-  color: #555a6e;
+  color: var(--color-text-muted);
 }
 
 .answer-progress-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #eef2ff;
-  border: 2px solid #5b8cff;
+  background: var(--color-primary-light);
+  border: 2px solid var(--color-primary);
   border-radius: 12px;
   padding: 8px 12px;
 }
 
 .answer-progress-label {
-  color: #d1453a;
+  color: var(--color-correct);
   font-weight: bold;
   font-size: 0.75rem;
   white-space: nowrap;
@@ -841,13 +888,13 @@ button:disabled {
   font-weight: bold;
   letter-spacing: 0.1em;
   word-break: break-all;
-  color: #1a1a2e;
+  color: var(--color-text);
 }
 
 .letter-timer {
   font-size: 1.05rem;
   font-weight: bold;
-  color: #d1453a;
+  color: var(--color-correct);
   min-width: 1.2em;
   text-align: right;
 }
@@ -861,10 +908,10 @@ button:disabled {
   max-width: 150px;
   max-height: 150px;
   border-radius: 50%;
-  background: #ff4d4d;
+  background: var(--color-danger);
   font-size: 1.4rem;
   font-weight: bold;
-  box-shadow: 0 6px 0 #a30000;
+  box-shadow: 0 6px 0 var(--color-danger-dark);
   transition: transform 0.05s;
   /* 親指で押しやすいよう、画面の下の方に寄せる（上の要素は詰めたまま） */
   margin-top: auto;
@@ -873,12 +920,12 @@ button:disabled {
 
 .buzz-btn:active:not(:disabled) {
   transform: translateY(6px);
-  box-shadow: 0 2px 0 #a30000;
+  box-shadow: 0 2px 0 var(--color-danger-dark);
 }
 
 .buzz-btn:disabled {
-  background: #c7cbdb;
-  box-shadow: 0 6px 0 #a3a8bf;
+  background: var(--color-border-strong);
+  box-shadow: 0 6px 0 var(--color-text-faint);
 }
 
 .choices {
@@ -890,15 +937,16 @@ button:disabled {
 }
 
 .choice-btn {
-  background: #eef0f9;
-  color: #1a1a2e;
+  background: var(--color-primary-light);
+  color: var(--color-text);
   text-align: center;
   font-size: 1.6rem;
   font-weight: bold;
   line-height: 1.2;
   min-height: 64px;
   padding: 8px 4px;
-  border: 2px solid #d8dae3;
+  border: 2px solid var(--color-border-strong);
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .choice-btn:disabled {
