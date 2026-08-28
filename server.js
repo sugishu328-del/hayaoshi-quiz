@@ -248,7 +248,7 @@ io.on('connection', (socket) => {
     if (questionBanks[room.difficulty].length === 0) return; // 問題が1問もない難易度では開始できない
     room.started = true;
     room.lockedOut.clear();
-    room.drawAndOpenNextQuestion();
+    room.startCountdownThenFirstQuestion();
   });
 
   onLimited('game:end', () => {
@@ -258,6 +258,7 @@ io.on('connection', (socket) => {
     room.cancelAllTimers();
     room.started = false;
     room.phase = 'open';
+    room.countdownValue = null;
     room.question = '';
     room.questionNumber = 0;
     room.answer = '';

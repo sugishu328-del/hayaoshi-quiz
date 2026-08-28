@@ -137,6 +137,8 @@ const ANNOUNCE_DELAY_MS = 1500; // 「第N問」だけを表示しておく時�
 const WRONG_ANSWER_DELAY_MS = 1500; // 文字を選んで誤答したときに「✕不正解」を表示しておく時間
 const POST_CORRECT_REVEAL_DELAY_MS = 2000; // 「○正解」の後、残りの問題文＋A.答えを表示しておく時間
 const CORRECT_ANSWER_DELAY_MS = 1500; // 正解し終わったときに「○正解」を表示しておく時間
+const GAME_START_COUNTDOWN_FROM = 3; // ゲーム開始直後、第1問の前に表示する「3→2→1」の開始値
+const COUNTDOWN_STEP_MS = 1000; // カウントダウンの数字が1つ進む間隔
 
 module.exports = {
   DIFFICULTIES,
@@ -158,4 +160,6 @@ module.exports = {
   WRONG_ANSWER_DELAY_MS,
   POST_CORRECT_REVEAL_DELAY_MS,
   CORRECT_ANSWER_DELAY_MS,
+  GAME_START_COUNTDOWN_FROM,
+  COUNTDOWN_STEP_MS,
 };
