@@ -274,6 +274,7 @@ const buzzBtn = document.getElementById('buzz-btn');
 const playerList = document.getElementById('player-list');
 const questionNumberEl = document.getElementById('question-number');
 const questionDisplay = document.getElementById('question-display');
+const questionTextEl = document.getElementById('question-text');
 const answerRevealLabel = document.getElementById('answer-reveal-label');
 const answerRevealAnswerEl = document.getElementById('answer-reveal-answer');
 const answerRevealInputEl = document.getElementById('answer-reveal-input');
@@ -550,12 +551,13 @@ socket.on('state', (state) => {
   questionNumberBadge.textContent = `Q${questionNumber}`;
 
   // 正解発表の後、次の問題文が出る前に「第N問」だけを一瞬表示する。
-  // question-number と question-display は同じ枠に重ねて表示し、
-  // 入れ替わってもレイアウトの高さが変わらないようにする。
+  // question-number と question-display は片方だけを表示し（display:noneで
+  // 場所を占有しない）、出題エリアの高さは表示中の問題文・解答の長さに応じて
+  // 可変にする（短ければ縮み、長ければ伸びる）。
   questionNumberEl.textContent = `第${questionNumber}問`;
-  questionNumberEl.classList.toggle('invisible', phase !== 'announce');
-  questionDisplay.classList.toggle('invisible', phase === 'announce');
-  updateQuestionReveal(questionDisplay, question, phase);
+  questionNumberEl.classList.toggle('hidden', phase !== 'announce');
+  questionDisplay.classList.toggle('hidden', phase === 'announce');
+  updateQuestionReveal(questionTextEl, question, phase);
 
   const me = players.find((p) => p.id === clientId);
   const isSelfBuzzed = buzzedId === clientId;

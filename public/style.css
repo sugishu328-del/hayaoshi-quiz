@@ -597,22 +597,15 @@ button:disabled {
   gap: 6px;
 }
 
-/* question-number と question-display は同じ枠に重ねて表示する。
-   一方だけ表示（visibility切替）してももう一方の枠が場所を確保しているので、
-   入れ替わってもレイアウトの高さは変わらない。 */
+/* question-number と question-display は同時には表示しない（.hiddenで片方だけ
+   displayされる）。出題エリアの高さは中身（問題文＋正解発表時は解答も）に合わせて
+   可変にし、min-heightだけ揃えて短い時の見た目の安定感を保つ。押すボタンは
+   margin-top: autoで下寄せされているので、出題エリアが伸び縮みしても
+   押すボタンより下に文字がはみ出ることはない。 */
 .stage {
   position: relative;
   width: 100%;
   flex: 0 0 auto;
-  height: 21vh;
-  min-height: 80px;
-  max-height: 130px;
-}
-
-.question-number,
-.question-display {
-  position: absolute;
-  inset: 0;
 }
 
 .question-number {
@@ -623,23 +616,20 @@ button:disabled {
   font-size: 1.7rem;
   font-weight: bold;
   color: var(--color-quiz-accent-dark);
+  min-height: 80px;
 }
 
 .question-display {
-  background: transparent;
-  border: none;
-  border-radius: 0;
+  min-height: 80px;
   padding: 10px 12px;
   font-size: 1.05rem;
   font-weight: bold;
   line-height: 1.5;
   white-space: pre-wrap;
-  overflow-y: auto;
   color: var(--color-text);
-  box-shadow: none;
 }
 
-.question-display.revealing::after {
+.question-text.revealing::after {
   content: '';
   display: inline-block;
   width: 0.5em;
@@ -655,28 +645,27 @@ button:disabled {
   50% { opacity: 0; }
 }
 
-/* 正解発表時、問題文の枠の右下に「A.答え」（正式表記＋判定用の読み）を重ねて表示する。 */
+/* 正解発表時、問題文のすぐ後ろ（次の行）に「A.答え」（正式表記＋判定用の読み）を表示する。
+   問題文が長くても絶対配置で重ねないので、解答と問題文が被ることはない。 */
 .answer-reveal-label {
-  position: absolute;
-  right: 8px;
-  bottom: 6px;
-  background: rgba(255, 255, 255, 0.92);
-  padding: 3px 8px;
-  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
+  margin-top: 8px;
 }
 
 .answer-reveal-answer {
   color: var(--color-correct);
   font-weight: bold;
   font-size: 1.2rem;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border-strong);
 }
 
 .answer-reveal-input {
   color: var(--color-text-muted);
   font-size: 0.8rem;
+  margin-top: 4px;
 }
 
 .status-banner {
