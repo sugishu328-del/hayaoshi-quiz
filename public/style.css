@@ -23,6 +23,12 @@
   --color-primary-dark: #3b2fa0;
   --color-primary-light: #ece9fb;
 
+  /* 部屋の難易度選択画面(setup-panel)だけで使うアクセントカラー。
+     クリーム背景に合わせたテラコッタ系で、他画面のブランドカラー(藍紫)とは独立させている。 */
+  --color-setup-accent: #e0562f;
+  --color-setup-accent-soft: #ee8763;
+  --color-setup-accent-dark: #a3341a;
+
   --color-accent: #ff8a3d;
   --color-accent-dark: #c4661d;
 
@@ -414,10 +420,10 @@ button:disabled {
 }
 
 .difficulty-btn.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+  background: var(--color-setup-accent);
+  border-color: var(--color-setup-accent);
   color: #fff;
-  box-shadow: 0 6px 0 var(--color-primary-dark);
+  box-shadow: 0 6px 0 var(--color-setup-accent-dark);
   transform: translateY(-2px);
 }
 
@@ -471,7 +477,7 @@ button:disabled {
 }
 
 .cpu-toggle input:checked {
-  background: var(--color-primary);
+  background: var(--color-setup-accent);
 }
 
 .cpu-toggle input:checked::after {
@@ -516,13 +522,13 @@ button:disabled {
   padding: 0;
   border-radius: 50%;
   border: none;
-  background: var(--color-primary);
+  background: var(--color-setup-accent);
   color: #fff;
   font-weight: 900;
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 3px 0 var(--color-primary-dark);
+  box-shadow: 0 3px 0 var(--color-setup-accent-dark);
 }
 
 .step-btn:active {
@@ -558,14 +564,14 @@ button:disabled {
   font-size: 1.05rem;
   padding: 16px;
   border-radius: 18px;
-  background: linear-gradient(160deg, var(--color-primary-soft), var(--color-primary));
-  box-shadow: 0 6px 0 var(--color-primary-dark);
+  background: linear-gradient(160deg, var(--color-setup-accent-soft), var(--color-setup-accent));
+  box-shadow: 0 6px 0 var(--color-setup-accent-dark);
   transition: transform 0.08s, box-shadow 0.08s;
 }
 
 #start-game-btn:active {
   transform: translateY(4px);
-  box-shadow: 0 2px 0 var(--color-primary-dark);
+  box-shadow: 0 2px 0 var(--color-setup-accent-dark);
 }
 
 #end-game-btn {
@@ -614,7 +620,7 @@ button:disabled {
   text-align: center;
   font-size: 1.7rem;
   font-weight: bold;
-  color: var(--color-primary-dark);
+  color: var(--color-setup-accent-dark);
 }
 
 .question-display {
