@@ -15,8 +15,6 @@ const {
   WRONG_ANSWER_DELAY_MS,
   POST_CORRECT_REVEAL_DELAY_MS,
   CORRECT_ANSWER_DELAY_MS,
-  GAME_START_COUNTDOWN_FROM,
-  COUNTDOWN_STEP_MS,
 } = require('./gameData');
 
 // 1つの対戦部屋分の状態とロジックをまとめたクラス。
@@ -42,8 +40,7 @@ class Room {
     this.difficulty = 'B';
     this.winScore = 5; // 0 = 制限なし。設定した点数に誰かが到達したら次の問題に進まずゲーム終了にする
     this.questionLimit = 30; // 0 = 制限なし。この問題数を出題し終えたらゲーム終了にする
-    this.phase = 'open'; // countdown | announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
-    this.countdownValue = null; // ゲーム開始直後、第1問の前に表示する「3→2→1」の現在値（countdownフェーズ以外はnull）
+    this.phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
     this.question = '';
     this.questionNumber = 0; // 何問目か（game:startで1から始まる）
     this.answer = ''; // 実際に1文字ずつ入力させて正誤判定する文字列（questions.jsonのinput。漢字の読みや短縮形）
@@ -66,7 +63,6 @@ class Room {
 
     this.cpuTimer = null;
     this.cpuLetterTimer = null;
-    this.countdownTimer = null;
     this.noBuzzTimer = null;
     this.letterTimer = null;
     this.advanceTimer = null;
@@ -112,7 +108,6 @@ class Room {
 
   cancelCpuTimer() { if (this.cpuTimer) { clearTimeout(this.cpuTimer); this.cpuTimer = null; } }
   cancelCpuLetterTimer() { if (this.cpuLetterTimer) { clearTimeout(this.cpuLetterTimer); this.cpuLetterTimer = null; } }
-  cancelCountdownTimer() { if (this.countdownTimer) { clearTimeout(this.countdownTimer); this.countdownTimer = null; } }
   cancelNoBuzzTimer() { if (this.noBuzzTimer) { clearTimeout(this.noBuzzTimer); this.noBuzzTimer = null; } this.noBuzzDeadline = null; }
 
   // 早押しされてopenフェーズが中断される瞬間に呼ぶ。ここまでに問題文が表示された時間を
@@ -131,7 +126,6 @@ class Room {
   cancelAllTimers() {
     this.cancelCpuTimer();
     this.cancelCpuLetterTimer();
-    this.cancelCountdownTimer();
     this.cancelNoBuzzTimer();
     this.cancelLetterTimer();
     this.cancelAdvanceTimer();
@@ -155,7 +149,6 @@ class Room {
       winScore: this.winScore,
       questionLimit: this.questionLimit,
       phase: this.phase,
-      countdownValue: this.countdownValue,
       question: this.question,
       questionNumber: this.questionNumber,
       isTraining: this.isTraining,
@@ -388,35 +381,7 @@ class Room {
     this.broadcastState();
   }
 
-  // ゲーム開始直後、第1問を出す前に「3→2→1」のカウントダウンを挟む。
-  // ここで本当にサーバー側のフェーズを止めておくことで、見た目のカウントダウン中に
-  // 裏で問題の自動タイムアウト等が進んでしまう（＝カウントダウン表示が終わる前に
-  // 正解発表まで進んでしまう）ことがないようにしている。
-  startCountdownThenFirstQuestion() {
-    this.cancelAllTimers();
-    this.phase = 'countdown';
-    this.countdownValue = GAME_START_COUNTDOWN_FROM;
-    this.broadcastState();
-    const tick = () => {
-      this.countdownTimer = setTimeout(() => {
-        this.countdownTimer = null;
-        if (!this.started) return;
-        this.countdownValue--;
-        if (this.countdownValue <= 0) {
-          this.countdownValue = null;
-          // カウントダウンで既に「もうすぐ始まる」ことは伝わっているので、通常の問題間で
-          // 挟む「第N問」演出（ANNOUNCE_DELAY_MS）は省略し、そのまま出題する。
-          this.drawAndOpenNextQuestion({ skipAnnounce: true });
-          return;
-        }
-        this.broadcastState();
-        tick();
-      }, COUNTDOWN_STEP_MS);
-    };
-    tick();
-  }
-
-  drawAndOpenNextQuestion({ skipAnnounce = false } = {}) {
+  drawAndOpenNextQuestion() {
     if (this.questionLimit > 0 && this.questionNumber >= this.questionLimit) {
       this.enterGameOver();
       return;
@@ -445,26 +410,16 @@ class Room {
     this.questionTypingStartedAt = null;
     this.questionOpenedAt = null;
     this.lockedOut.clear();
-
-    const openNow = () => {
-      this.phase = 'open';
-      this.questionOpenedAt = Date.now();
-      this.scheduleNoBuzzTimer();
-      this.broadcastState();
-      this.scheduleCpuBuzzIfNeeded();
-    };
-
-    if (skipAnnounce) {
-      openNow();
-      return;
-    }
-
     this.phase = 'announce';
     this.broadcastState();
     this.advanceTimer = setTimeout(() => {
       this.advanceTimer = null;
       if (!this.started) return;
-      openNow();
+      this.phase = 'open';
+      this.questionOpenedAt = Date.now();
+      this.scheduleNoBuzzTimer();
+      this.broadcastState();
+      this.scheduleCpuBuzzIfNeeded();
     }, ANNOUNCE_DELAY_MS);
   }
 }

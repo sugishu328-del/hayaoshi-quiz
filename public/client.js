@@ -237,27 +237,6 @@ endConfirmOkBtn.addEventListener('click', () => {
   socket.emit('game:end');
 });
 
-// ゲーム開始直後、第1問の前に一瞬だけ表示する「3→2→1」のカウントダウン。
-const countdownOverlay = document.getElementById('countdown-overlay');
-const countdownValueEl = document.getElementById('countdown-value');
-let lastRenderedCountdownValue = null;
-
-function updateCountdown(phase, countdownValue) {
-  countdownOverlay.classList.toggle('hidden', phase !== 'countdown');
-  if (phase !== 'countdown') {
-    lastRenderedCountdownValue = null;
-    return;
-  }
-  if (countdownValue === lastRenderedCountdownValue) return;
-  lastRenderedCountdownValue = countdownValue;
-  countdownValueEl.textContent = countdownValue;
-  // 数字が変わるたびにポップするアニメーションを最初から再生させるため、
-  // 一度クラスを外してリフローを挟んでから付け直す。
-  countdownValueEl.classList.remove('pop');
-  void countdownValueEl.offsetWidth;
-  countdownValueEl.classList.add('pop');
-}
-
 // 先取点数・出題数上限に到達すると自動的にこの画面になる（確認なしでそのまま終了してよい）。
 const gameOverOverlay = document.getElementById('game-over-overlay');
 const gameOverRanking = document.getElementById('game-over-ranking');
@@ -502,7 +481,6 @@ socket.on('state', (state) => {
     winScore,
     questionLimit,
     phase,
-    countdownValue,
     question,
     questionNumber,
     isTraining,
@@ -565,7 +543,6 @@ socket.on('state', (state) => {
     return;
   }
 
-  updateCountdown(phase, countdownValue);
   if (!started) return;
 
   // 上部バー中央の「QN」バッジは、フェーズに関わらず常に何問目かを表示し続ける

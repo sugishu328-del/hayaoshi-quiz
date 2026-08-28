@@ -860,39 +860,6 @@ button:disabled {
   color: var(--color-primary-dark);
 }
 
-/* ゲーム開始直後、第1問の前に一瞬だけ表示する「3→2→1」のカウントダウン */
-.countdown-card {
-  align-items: center;
-  text-align: center;
-  gap: 4px;
-  margin-top: 0;
-  padding: 28px 14px;
-}
-
-.countdown-label {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: bold;
-  color: var(--color-text-muted);
-}
-
-.countdown-value {
-  font-family: "M PLUS Rounded 1c", "Hiragino Sans", "Yu Gothic", sans-serif;
-  font-size: 5rem;
-  font-weight: 900;
-  line-height: 1;
-  color: var(--color-quiz-accent);
-}
-
-.countdown-value.pop {
-  animation: countdown-pop 0.5s cubic-bezier(.34, 1.56, .64, 1);
-}
-
-@keyframes countdown-pop {
-  0% { transform: scale(1.6); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-
 .game-over-ranking {
   width: 100%;
   list-style: none;
