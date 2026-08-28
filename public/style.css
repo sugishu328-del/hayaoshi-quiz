@@ -7,12 +7,12 @@
    1つのブランドカラー(藍色寄りのバイオレット)に統一する。カード類は枠線ではなく
    影(elevation)で背景から浮かせて立体感を出す。 */
 :root {
-  --color-bg: #eef0fa;
-  --color-bg-alt: #e5e8f7;
+  --color-bg: #faf5ea;
+  --color-bg-alt: #f1e7d2;
   --color-surface: #ffffff;
-  --color-surface-alt: #f2f3fb;
-  --color-border: #e1e3f0;
-  --color-border-strong: #ccd0e6;
+  --color-surface-alt: #f5eeda;
+  --color-border: #e8ddc4;
+  --color-border-strong: #d9c9a3;
 
   --color-text: #1a1a2e;
   --color-text-muted: #5b5f7a;
@@ -185,6 +185,13 @@ input[type="text"] {
   background: var(--color-surface);
   color: var(--color-text);
   font-size: 1rem;
+}
+
+/* ブラウザ既定のフォーカス枠（水色）はこの配色と合わないため、控えめな枠線の色変化のみにする */
+input[type="text"]:focus,
+input[type="number"]:focus {
+  outline: none;
+  border-color: var(--color-primary-soft);
 }
 
 button {
