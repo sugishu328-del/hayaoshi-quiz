@@ -68,7 +68,9 @@ body {
 
 #join-screen {
   justify-content: center;
-  padding: 24px 16px;
+  gap: 16px;
+  /* 下側を少し厚めにして、中央寄せの内容全体を画面のやや上寄りに見せる */
+  padding: 24px 16px 10vh;
 }
 
 .hidden {
@@ -100,11 +102,18 @@ h1 {
 .app-title span {
   font-family: "M PLUS Rounded 1c", "Hiragino Sans", "Yu Gothic", sans-serif;
   font-weight: 900;
-  font-size: 2.1rem;
+  font-size: 2.6rem;
   color: #ffffff;
   -webkit-text-stroke: 6px var(--color-primary);
   paint-order: stroke fill;
   text-shadow: 0 4px 0 rgba(59, 47, 160, 0.25);
+}
+
+/* 参加画面の飾り。実際のゲーム中の押すボタンと同じ見た目を先に見せることで、
+   「早押しクイズアプリ」であることを一目で伝える。押しても何も起きない見た目だけの要素。 */
+.join-hero-buzz {
+  margin: 4px 0 24px;
+  cursor: default;
 }
 
 .mode-select {
