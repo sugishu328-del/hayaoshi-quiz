@@ -269,7 +269,7 @@ function renderGameOverRanking(players) {
 // 出たり消えたりする要素は display ではなく visibility を切り替える（invisibleクラス）。
 // こうすることで、非表示になっても場所は確保されたままになり、下にあるボタンなどの
 // 位置がフェーズの切り替わりで動かない（画面の上下が固定される）。
-const statusBanner = document.getElementById('status-banner');
+const revealTimerBar = document.getElementById('reveal-timer-bar');
 const buzzBtn = document.getElementById('buzz-btn');
 const playerList = document.getElementById('player-list');
 const questionNumberEl = document.getElementById('question-number');
@@ -439,23 +439,55 @@ function updateQuestionReveal(el, text, phase) {
 }
 
 // 問題文の表示が終わったのに誰も押さないままだと、サーバーが一定時間後に
-// 自動で正解発表へ進む。その残り秒数をここでカウントダウン表示する。
-// （表示が終わったかどうかはこのクライアント自身のタイプライター表示の完了で判断する）
+// 自動で正解発表へ進む。その残り時間を、参加者バー下のreveal-timer-barが
+// 満幅から0まで縮んでいくアニメーションで示す（CSS transitionに任せることで
+// 250ms間隔のポーリングでもなめらかに見える。詳細はresetRevealTimerBar/
+// freezeRevealTimerBar/startRevealTimerBarを参照）。
 let currentPhase = null;
 let currentNoBuzzDeadline = null;
 let latestRevealedAnswer = null;
 let latestRevealedInput = null;
 let lastSfxPhase = null; // 出題・正解・不正解の効果音を、フェーズが切り替わった瞬間だけ鳴らすための直前値
 let sfxPhaseInitialized = false; // 参加/再接続した直後の最初のstateでは、進行中のフェーズを誤って「切り替わった」と判定しないようにする
+let revealTimerDeadline = null; // 現在バーがアニメーション対象にしている締切（同じ締切に対して二重にstartしないため）
+let revealTimerRunning = false; // 現在CSS transitionで縮んでいる最中かどうか
+
+// 次の問題の待機に備えて、バーを満幅・アニメーションなしの状態に戻す。
+function resetRevealTimerBar() {
+  revealTimerDeadline = null;
+  revealTimerRunning = false;
+  revealTimerBar.style.transition = 'none';
+  revealTimerBar.style.width = '100%';
+}
+
+// 縮んでいる途中で誰かが押して中断された場合、その時点の幅で止める
+// （満幅に戻さない。CSS transitionを止めるには、今のピクセル幅を明示的に指定し直す必要がある）。
+function freezeRevealTimerBar() {
+  if (!revealTimerRunning) return;
+  const currentWidthPx = revealTimerBar.getBoundingClientRect().width;
+  revealTimerBar.style.transition = 'none';
+  revealTimerBar.style.width = `${currentWidthPx}px`;
+  revealTimerRunning = false;
+}
+
+// 満幅から0まで、残り時間ぶんかけてCSS transitionで縮ませ始める。
+function startRevealTimerBar(remainingMs) {
+  revealTimerBar.style.transition = 'none';
+  revealTimerBar.style.width = '100%';
+  void revealTimerBar.offsetWidth; // 満幅を確定させてからtransitionを仕込むための強制リフロー
+  revealTimerBar.style.transition = `width ${remainingMs}ms linear`;
+  revealTimerBar.style.width = '0%';
+  revealTimerRunning = true;
+}
 
 function tickNoBuzzCountdown() {
   if (currentPhase !== 'open' || !currentNoBuzzDeadline) return;
   const isTypingDone = revealState.text !== null && revealState.index >= revealState.text.length;
-  if (!isTypingDone) return;
-  const remaining = Math.max(0, Math.ceil((currentNoBuzzDeadline - Date.now()) / 1000));
-  statusBanner.textContent = `あと${remaining}秒で自動的に正解発表します`;
-  statusBanner.className = 'status-banner countdown';
-  statusBanner.classList.remove('invisible');
+  if (!isTypingDone) return; // タイプライター表示中はバーは満幅のまま動かさない
+  if (revealTimerDeadline === currentNoBuzzDeadline) return; // この締切に対してはstart済み
+  revealTimerDeadline = currentNoBuzzDeadline;
+  const remainingMs = Math.max(0, currentNoBuzzDeadline - Date.now());
+  startRevealTimerBar(remainingMs);
 }
 
 // 正解後(correctReveal)は、残りの問題文の表示が終わるまで「A.答え」を隠す。
@@ -501,9 +533,21 @@ socket.on('state', (state) => {
     players,
   } = state;
 
+  const prevPhase = currentPhase;
+  const prevNoBuzzDeadline = currentNoBuzzDeadline;
   currentPhase = started ? phase : null;
   currentNoBuzzDeadline = noBuzzDeadline;
   currentlyStarted = started;
+
+  // 誰かが押して'open'から抜けた（＝中断。時間切れでreveal/correctRevealに切り替わった
+  // 場合も含む）→ その時点の幅で止める。押されるとサーバー側の締切も同時にnullへ
+  // 変わるので、先にこちらを判定しないと下のリセット条件と誤って一致してしまう。
+  // それ以外で締切が変わった＝新しい問題の待機が始まった → バーを満幅にリセットする。
+  if (prevPhase === 'open' && currentPhase !== 'open' && revealTimerRunning) {
+    freezeRevealTimerBar();
+  } else if (currentNoBuzzDeadline !== prevNoBuzzDeadline) {
+    resetRevealTimerBar();
+  }
 
   // フェーズが切り替わった瞬間にだけ効果音を鳴らす（同じフェーズ中に他の理由で
   // stateが再送されても連打で鳴ってしまわないように、直前のフェーズと比較する）。
@@ -599,6 +643,5 @@ socket.on('state', (state) => {
   latestRevealedInput = revealedInput;
   tickAnswerRevealLabel();
 
-  statusBanner.classList.add('invisible');
   buzzBtn.disabled = phase !== 'open' || !me || me.locked;
 });

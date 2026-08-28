@@ -260,8 +260,18 @@ button:disabled {
   flex: 0 0 auto;
   width: 100%;
   background: var(--color-quiz-accent-light);
-  border-bottom: 2px solid var(--color-quiz-accent-soft);
   padding: 14px;
+}
+
+/* 参加者バーの下の線を、そのまま「誰も押さないまま自動的に正解発表になるまで」の
+   残り時間バーとして使う。問題文の表示（タイプライター）が終わった時点で満幅から
+   スタートし、NO_BUZZ_TIMEOUT_MSぶんかけて右側から左へ縮んでいき、0になった瞬間に
+   幅0(一番左)に到達する。制御はclient.jsのstartRevealTimerBar等を参照。 */
+.reveal-timer-bar {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 2px;
+  background: var(--color-quiz-accent-soft);
 }
 
 .player-list {
@@ -672,21 +682,6 @@ button:disabled {
   color: var(--color-text-muted);
   font-size: 0.8rem;
   margin-top: 4px;
-}
-
-.status-banner {
-  flex: 0 0 auto;
-  width: 100%;
-  text-align: center;
-  padding: 8px;
-  border-radius: 12px;
-  font-weight: bold;
-  font-size: 0.85rem;
-}
-
-.status-banner.countdown {
-  background: var(--color-surface-alt);
-  color: var(--color-text-muted);
 }
 
 /* 誰かが解答中（buzzed）のときに、問題文の上へ半透明の背景つきポップアップで出す。 */
