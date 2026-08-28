@@ -467,6 +467,7 @@ function tickAnswerRevealLabel() {
   // 判定用の読み・短縮形は、正式表記と同じ場合は二重表示せず省略する。
   const showInputLine = !!latestRevealedInput && latestRevealedInput !== latestRevealedAnswer;
   answerRevealInputEl.textContent = showInputLine ? latestRevealedInput : '';
+  answerRevealLabel.classList.toggle('has-input', showInputLine);
   answerRevealLabel.classList.toggle('hidden', !show);
 }
 

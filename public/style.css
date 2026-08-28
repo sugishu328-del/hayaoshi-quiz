@@ -650,7 +650,7 @@ button:disabled {
 .answer-reveal-label {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   margin-top: 8px;
 }
 
@@ -658,6 +658,12 @@ button:disabled {
   color: var(--color-correct);
   font-weight: bold;
   font-size: 1.2rem;
+}
+
+/* 判定用の読み・短縮形（answer-reveal-input）が表示されているときだけ、
+   正解の行の下に区切り線を入れる。読みが正式表記と同じで省略される場合は
+   区切る相手がいないので線も出さない。 */
+.answer-reveal-label.has-input .answer-reveal-answer {
   padding-bottom: 4px;
   border-bottom: 1px solid var(--color-border-strong);
 }
