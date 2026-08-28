@@ -23,11 +23,12 @@
   --color-primary-dark: #3b2fa0;
   --color-primary-light: #ece9fb;
 
-  /* 部屋の難易度選択画面(setup-panel)だけで使うアクセントカラー。
+  /* 難易度選択画面・早押し解答中の画面で使うアクセントカラー。
      クリーム背景に合わせたテラコッタ系で、他画面のブランドカラー(藍紫)とは独立させている。 */
-  --color-setup-accent: #e0562f;
-  --color-setup-accent-soft: #ee8763;
-  --color-setup-accent-dark: #a3341a;
+  --color-quiz-accent: #e0562f;
+  --color-quiz-accent-soft: #ee8763;
+  --color-quiz-accent-dark: #a3341a;
+  --color-quiz-accent-light: #fbe3da;
 
   --color-accent: #ff8a3d;
   --color-accent-dark: #c4661d;
@@ -420,10 +421,10 @@ button:disabled {
 }
 
 .difficulty-btn.active {
-  background: var(--color-setup-accent);
-  border-color: var(--color-setup-accent);
+  background: var(--color-quiz-accent);
+  border-color: var(--color-quiz-accent);
   color: #fff;
-  box-shadow: 0 6px 0 var(--color-setup-accent-dark);
+  box-shadow: 0 6px 0 var(--color-quiz-accent-dark);
   transform: translateY(-2px);
 }
 
@@ -477,7 +478,7 @@ button:disabled {
 }
 
 .cpu-toggle input:checked {
-  background: var(--color-setup-accent);
+  background: var(--color-quiz-accent);
 }
 
 .cpu-toggle input:checked::after {
@@ -522,13 +523,13 @@ button:disabled {
   padding: 0;
   border-radius: 50%;
   border: none;
-  background: var(--color-setup-accent);
+  background: var(--color-quiz-accent);
   color: #fff;
   font-weight: 900;
   font-size: 1.1rem;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 3px 0 var(--color-setup-accent-dark);
+  box-shadow: 0 3px 0 var(--color-quiz-accent-dark);
 }
 
 .step-btn:active {
@@ -564,14 +565,14 @@ button:disabled {
   font-size: 1.05rem;
   padding: 16px;
   border-radius: 18px;
-  background: linear-gradient(160deg, var(--color-setup-accent-soft), var(--color-setup-accent));
-  box-shadow: 0 6px 0 var(--color-setup-accent-dark);
+  background: linear-gradient(160deg, var(--color-quiz-accent-soft), var(--color-quiz-accent));
+  box-shadow: 0 6px 0 var(--color-quiz-accent-dark);
   transition: transform 0.08s, box-shadow 0.08s;
 }
 
 #start-game-btn:active {
   transform: translateY(4px);
-  box-shadow: 0 2px 0 var(--color-setup-accent-dark);
+  box-shadow: 0 2px 0 var(--color-quiz-accent-dark);
 }
 
 #end-game-btn {
@@ -620,12 +621,12 @@ button:disabled {
   text-align: center;
   font-size: 1.7rem;
   font-weight: bold;
-  color: var(--color-setup-accent-dark);
+  color: var(--color-quiz-accent-dark);
 }
 
 .question-display {
-  background: var(--color-primary-light);
-  border: 2px solid var(--color-primary);
+  background: var(--color-quiz-accent-light);
+  border: 2px solid var(--color-quiz-accent);
   border-radius: 12px;
   padding: 10px 12px;
   font-size: 0.95rem;
@@ -641,7 +642,7 @@ button:disabled {
   width: 0.5em;
   height: 1em;
   margin-left: 2px;
-  background: var(--color-primary);
+  background: var(--color-quiz-accent);
   vertical-align: text-bottom;
   animation: blink-cursor 0.8s step-end infinite;
 }
@@ -902,8 +903,8 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--color-primary-light);
-  border: 2px solid var(--color-primary);
+  background: var(--color-quiz-accent-light);
+  border: 2px solid var(--color-quiz-accent);
   border-radius: 12px;
   padding: 8px 12px;
 }
@@ -976,7 +977,7 @@ button:disabled {
 }
 
 .choice-btn {
-  background: var(--color-primary-light);
+  background: var(--color-quiz-accent-light);
   color: var(--color-text);
   text-align: center;
   font-size: 1.6rem;
@@ -984,7 +985,7 @@ button:disabled {
   line-height: 1.2;
   min-height: 64px;
   padding: 8px 4px;
-  border: 2px solid var(--color-border-strong);
+  border: 2px solid var(--color-quiz-accent-soft);
   box-shadow: var(--shadow-raised-sm);
 }
 
