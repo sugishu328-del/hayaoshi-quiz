@@ -176,7 +176,6 @@ leaveConfirmOkBtn.addEventListener('click', () => {
 });
 
 // ---- セットアップパネル（誰でも操作可） ----
-const gameTitle = document.getElementById('game-title');
 const setupPanel = document.getElementById('setup-panel');
 const playPanel = document.getElementById('play-panel');
 const difficultyButtons = document.querySelectorAll('.difficulty-btn');
@@ -184,6 +183,8 @@ const cpuToggleRow = document.querySelector('.cpu-toggle');
 const cpuToggle = document.getElementById('cpu-toggle-checkbox');
 const winScoreInput = document.getElementById('win-score-input');
 const questionLimitInput = document.getElementById('question-limit-input');
+const wrongPenaltyInput = document.getElementById('wrong-penalty-input');
+const wrongLimitInput = document.getElementById('wrong-limit-input');
 const startGameBtn = document.getElementById('start-game-btn');
 const endGameBtn = document.getElementById('end-game-btn');
 const questionNumberBadge = document.getElementById('question-number-badge');
@@ -204,6 +205,12 @@ winScoreInput.addEventListener('change', () => {
 });
 questionLimitInput.addEventListener('change', () => {
   socket.emit('game:setQuestionLimit', { questionLimit: questionLimitInput.value === '' ? 0 : Number(questionLimitInput.value) });
+});
+wrongPenaltyInput.addEventListener('change', () => {
+  socket.emit('game:setWrongPenalty', { wrongPenalty: wrongPenaltyInput.value === '' ? 0 : Number(wrongPenaltyInput.value) });
+});
+wrongLimitInput.addEventListener('change', () => {
+  socket.emit('game:setWrongLimit', { wrongLimit: wrongLimitInput.value === '' ? 0 : Number(wrongLimitInput.value) });
 });
 
 // 先取点数・出題数上限の±ボタン。対象のinputの値を直接書き換えてchangeイベントを
@@ -514,6 +521,8 @@ socket.on('state', (state) => {
     difficulty,
     winScore,
     questionLimit,
+    wrongPenalty,
+    wrongLimit,
     phase,
     question,
     questionNumber,
@@ -575,7 +584,6 @@ socket.on('state', (state) => {
   const showReactionFor = (phase === 'buzzed' || phase === 'wrong' || phase === 'correct') ? lastBuzzerId : null;
   renderPlayerList(playerList, players, buzzedId, showReactionFor, lastBuzzerReactionMs);
 
-  gameTitle.classList.toggle('hidden', started);
   setupPanel.classList.toggle('hidden', started);
   playPanel.classList.toggle('hidden', !started);
   questionNumberBadge.classList.toggle('hidden', !started);
@@ -588,6 +596,8 @@ socket.on('state', (state) => {
   // 入力中（フォーカス中）の欄は、他の人の操作で届いたstateで値を上書きしないようにする。
   if (document.activeElement !== winScoreInput) winScoreInput.value = winScore > 0 ? winScore : '';
   if (document.activeElement !== questionLimitInput) questionLimitInput.value = questionLimit > 0 ? questionLimit : '';
+  if (document.activeElement !== wrongPenaltyInput) wrongPenaltyInput.value = wrongPenalty > 0 ? wrongPenalty : '';
+  if (document.activeElement !== wrongLimitInput) wrongLimitInput.value = wrongLimit > 0 ? wrongLimit : '';
 
   gameOverOverlay.classList.toggle('hidden', phase !== 'gameOver');
   if (phase === 'gameOver') {

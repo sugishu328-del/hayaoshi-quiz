@@ -383,6 +383,15 @@ button:disabled {
 
 .setup-panel {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 「難易度設定」「ルール設定」を別々のカードに分けて見せるための共通の枠。
+   以前は.setup-panel自体がこの見た目（1枚のカードに全部詰め込み）だった。 */
+.setting-card {
+  width: 100%;
   background: var(--color-surface);
   border-radius: 16px;
   padding: 16px;
@@ -395,6 +404,7 @@ button:disabled {
 .setup-label {
   margin: 0;
   font-size: 0.9rem;
+  font-weight: bold;
   color: var(--color-text-muted);
 }
 
@@ -498,12 +508,12 @@ button:disabled {
 
 .room-settings {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
 .stepper-field {
-  flex: 1;
   background: var(--color-surface-alt);
   box-shadow: var(--shadow-inset);
   border-radius: 14px;

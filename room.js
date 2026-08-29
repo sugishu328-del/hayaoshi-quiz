@@ -40,6 +40,8 @@ class Room {
     this.difficulty = 'B';
     this.winScore = 5; // 0 = 制限なし。設定した点数に誰かが到達したら次の問題に進まずゲーム終了にする
     this.questionLimit = 30; // 0 = 制限なし。この問題数を出題し終えたらゲーム終了にする
+    this.wrongPenalty = 0; // 0 = ペナルティなし。誤答1回につきこの点数を減点する（0点未満にはしない）
+    this.wrongLimit = 0; // 0 = 無制限。1人の誤答回数がこれに達したら失格（disqualified）にする
     this.phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
     this.question = '';
     this.questionNumber = 0; // 何問目か（game:startで1から始まる）
@@ -60,6 +62,7 @@ class Room {
     this.lastBuzzerId = null; // 直近に押した人（「○正解」「✕不正解」表示中はbuzzedIdがnullになるので別途保持）
     this.lastBuzzerReactionMs = null; // 問題文表示開始から押すまでにかかった時間（参加者バーの表示用）
     this.lockedOut = new Set(); // この問題で誤答済みのplayerId
+    this.disqualified = new Set(); // 誤答許容回数を超えて失格したplayerId（ゲーム終了までずっと押せない）
 
     this.cpuTimer = null;
     this.cpuLetterTimer = null;
@@ -138,7 +141,10 @@ class Room {
       id,
       name: p.name,
       score: p.score,
-      locked: this.lockedOut.has(id),
+      // 失格(disqualified)は「今の問題だけ押せない(lockedOut)」と見た目・扱いを共通化する
+      // （どちらも「今は押せない」という点で表示上は同じでよいため、専用の表示は作らない）。
+      // lockedOutは毎問クリアされるが、disqualifiedはゲーム終了までクリアされない。
+      locked: this.lockedOut.has(id) || this.disqualified.has(id),
     }));
   }
 
@@ -148,6 +154,8 @@ class Room {
       difficulty: this.difficulty,
       winScore: this.winScore,
       questionLimit: this.questionLimit,
+      wrongPenalty: this.wrongPenalty,
+      wrongLimit: this.wrongLimit,
       phase: this.phase,
       question: this.question,
       questionNumber: this.questionNumber,
@@ -277,14 +285,14 @@ class Room {
   scheduleCpuBuzzIfNeeded() {
     this.cancelCpuTimer();
     if (!this.players.has(CPU_ID) || !this.started || this.phase !== 'open' || !this.answer) return;
-    if (this.lockedOut.has(CPU_ID)) return;
+    if (this.lockedOut.has(CPU_ID) || this.disqualified.has(CPU_ID)) return;
 
     const roundQuestion = this.question;
     const reactionDelay = 1000 + Math.random() * 3000; // 1〜4秒でランダムに早押し
     this.cpuTimer = setTimeout(() => {
       this.cpuTimer = null;
       if (!this.started || this.phase !== 'open' || this.question !== roundQuestion) return;
-      if (!this.players.has(CPU_ID) || this.lockedOut.has(CPU_ID)) return;
+      if (!this.players.has(CPU_ID) || this.lockedOut.has(CPU_ID) || this.disqualified.has(CPU_ID)) return;
 
       this.cancelNoBuzzTimer();
       this.pauseQuestionTyping();
@@ -326,7 +334,15 @@ class Room {
   resolveWrong(choice) {
     this.cancelLetterTimer();
     this.cancelCpuLetterTimer();
-    if (this.buzzedId) this.lockedOut.add(this.buzzedId);
+    if (this.buzzedId) {
+      this.lockedOut.add(this.buzzedId);
+      const p = this.players.get(this.buzzedId);
+      if (p) {
+        if (this.wrongPenalty > 0) p.score = Math.max(0, p.score - this.wrongPenalty);
+        p.wrongCount = (p.wrongCount || 0) + 1;
+        if (this.wrongLimit > 0 && p.wrongCount >= this.wrongLimit) this.disqualified.add(this.buzzedId);
+      }
+    }
     this.buzzedId = null;
 
     this.wrongLetterChoice = this.answer.slice(0, this.resolvedCount) + (choice || '');
@@ -341,10 +357,25 @@ class Room {
     }, WRONG_ANSWER_DELAY_MS);
   }
 
+  // CPUはあくまで練習相手で、失格判定の対象から見た「続行の意味」を持たない
+  // （人間が誰もいなければCPUだけ動き続けても仕方ないため）。接続中の人間プレイヤーが
+  // 1人も残っていなければ（全員失格、または誰も参加していなければ）ゲームを続けない。
+  allHumansDisqualified() {
+    let hasConnectedHuman = false;
+    for (const [id, p] of this.players) {
+      if (id === CPU_ID || !p.connected) continue;
+      hasConnectedHuman = true;
+      if (!this.disqualified.has(id)) return false;
+    }
+    return hasConnectedHuman;
+  }
+
   proceedAfterWrong() {
     this.wrongLetterChoice = null;
     this.wrongTimedOut = false;
-    if (this.lockedOut.size >= this.connectedPlayerCount()) {
+    if (this.allHumansDisqualified()) {
+      this.enterGameOver();
+    } else if (this.lockedOut.size >= this.connectedPlayerCount()) {
       this.enterReveal();
     } else {
       this.phase = 'open';

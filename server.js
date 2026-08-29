@@ -169,7 +169,7 @@ io.on('connection', (socket) => {
         existing.disconnectTimer = null;
       }
     } else {
-      room.players.set(id, { name: cleanName, score: 0, connected: true, disconnectTimer: null });
+      room.players.set(id, { name: cleanName, score: 0, connected: true, disconnectTimer: null, wrongCount: 0 });
     }
     room.broadcastState();
   });
@@ -212,7 +212,7 @@ io.on('connection', (socket) => {
     const { enabled } = payload || {};
     if (!room.players.has(socket.data.clientId) || room.started) return;
     if (enabled) {
-      if (!room.players.has(CPU_ID)) room.players.set(CPU_ID, { name: 'CPU', score: 0, connected: true });
+      if (!room.players.has(CPU_ID)) room.players.set(CPU_ID, { name: 'CPU', score: 0, connected: true, wrongCount: 0 });
     } else {
       room.players.delete(CPU_ID);
     }
@@ -241,6 +241,28 @@ io.on('connection', (socket) => {
     room.broadcastState();
   });
 
+  onLimited('game:setWrongPenalty', (payload) => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    const { wrongPenalty } = payload || {};
+    if (!room.players.has(socket.data.clientId) || room.started) return;
+    const n = Number(wrongPenalty);
+    if (!Number.isInteger(n) || n < 0 || n > 99) return;
+    room.wrongPenalty = n;
+    room.broadcastState();
+  });
+
+  onLimited('game:setWrongLimit', (payload) => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    const { wrongLimit } = payload || {};
+    if (!room.players.has(socket.data.clientId) || room.started) return;
+    const n = Number(wrongLimit);
+    if (!Number.isInteger(n) || n < 0 || n > 99) return;
+    room.wrongLimit = n;
+    room.broadcastState();
+  });
+
   onLimited('game:start', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
@@ -248,6 +270,8 @@ io.on('connection', (socket) => {
     if (questionBanks[room.difficulty].length === 0) return; // 問題が1問もない難易度では開始できない
     room.started = true;
     room.lockedOut.clear();
+    room.disqualified.clear();
+    for (const p of room.players.values()) p.wrongCount = 0;
     room.drawAndOpenNextQuestion();
   });
 
@@ -276,7 +300,8 @@ io.on('connection', (socket) => {
     room.questionTypingStartedAt = null;
     room.questionOpenedAt = null;
     room.lockedOut.clear();
-    for (const p of room.players.values()) p.score = 0; // 次に始めるときはスコア0からにする
+    room.disqualified.clear();
+    for (const p of room.players.values()) { p.score = 0; p.wrongCount = 0; } // 次に始めるときは0からにする
     room.shuffledQueues.A = [];
     room.shuffledQueues.B = [];
     room.shuffledQueues.C = []; // 出題履歴もリセットして、次回また1からシャッフルし直す
@@ -289,7 +314,7 @@ io.on('connection', (socket) => {
     if (!room.started || room.phase !== 'open') return;
     const clientId = socket.data.clientId;
     if (!clientId || !room.players.has(clientId)) return;
-    if (room.lockedOut.has(clientId)) return;
+    if (room.lockedOut.has(clientId) || room.disqualified.has(clientId)) return;
     room.cancelCpuTimer();
     room.cancelNoBuzzTimer();
     room.pauseQuestionTyping();
