@@ -639,7 +639,24 @@ button:disabled {
   color: var(--color-text);
 }
 
-.question-text.revealing::after {
+/* 「Q.」とその後ろの問題文をflexで横並びにし、問題文だけを折り返し対象にする。
+   こうすると2行目以降は「Q.」の下ではなく、問題文の開始位置（1文字目）の
+   縦のラインに揃う（ぶら下げインデント）。 */
+.question-body {
+  display: flex;
+  align-items: flex-start;
+}
+
+.question-label {
+  flex: 0 0 auto;
+}
+
+#question-text {
+  flex: 1 1 auto;
+  min-width: 0; /* flexアイテムはデフォルトで中身の幅より縮められないため、これがないと折り返されない */
+}
+
+#question-text.revealing::after {
   content: '';
   display: inline-block;
   width: 0.5em;
