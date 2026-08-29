@@ -125,6 +125,11 @@ function buildFirstLetterChoices(correctChar, distractors) {
 const CPU_ID = 'cpu';
 const CPU_ACCURACY = { A: 0.3, B: 0.6, C: 0.9 }; // A=むずかしい, C=かんたん
 
+// プロフィール（アカウント作成）で選べるアイコン一覧。public/client.jsにも同じ内容を
+// 直接書いている（ブラウザ側はバンドラを使っていないためrequireできない）ので、
+// 増減する際はそちらも合わせて変更すること。
+const ICON_CHOICES = ['🦊', '🐱', '🐶', '🐻', '🦁', '🐰', '🐼', '🐨'];
+
 // ---- 部屋(Room)共通のタイミング定数 ----
 const DISCONNECT_GRACE_MS = 60000; // この時間内に同じclientIdで再参加すればスコアを維持したまま復帰できる
 const TYPEWRITER_SPEED_MS = 140; // client.jsの問題文タイプライター表示と同じ速さ（表示完了タイミングの計算に使う）
@@ -147,6 +152,7 @@ module.exports = {
   buildFirstLetterChoices,
   CPU_ID,
   CPU_ACCURACY,
+  ICON_CHOICES,
   DISCONNECT_GRACE_MS,
   TYPEWRITER_SPEED_MS,
   CORRECT_REVEAL_SPEED_MS,

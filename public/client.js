@@ -33,6 +33,53 @@ function getClientId() {
 }
 const clientId = getClientId();
 
+// ---- プロフィール（アカウント作成で名前・アイコンを保存する機能） ----
+// gameData.jsのICON_CHOICESと同じ内容。ブラウザ側はバンドラを使っておらずrequireできないため
+// 直接書いている（増減する際は両方を合わせて変更する）。
+const ICON_CHOICES = ['🦊', '🐱', '🐶', '🐻', '🦁', '🐰', '🐼', '🐨'];
+const PROFILE_KEY = 'hayaoshi_profile';
+
+function getProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.name !== 'string' || !ICON_CHOICES.includes(parsed.icon)) return null;
+    return parsed;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveProfile(name, icon) {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify({ name, icon }));
+  } catch (e) {
+    // localStorageが使えない環境では保存を諦める（次回もゲスト扱いになるだけで、動作は継続できる）
+  }
+}
+
+// ---- 効果音のON/OFF設定 ----
+const SOUND_ENABLED_KEY = 'hayaoshi_sound_enabled';
+
+function getSoundEnabled() {
+  try {
+    const raw = localStorage.getItem(SOUND_ENABLED_KEY);
+    return raw === null ? true : raw === 'true';
+  } catch (e) {
+    return true;
+  }
+}
+
+function setSoundEnabled(enabled) {
+  try {
+    localStorage.setItem(SOUND_ENABLED_KEY, enabled ? 'true' : 'false');
+  } catch (e) {
+    // 保存できなくても今回のセッション中は効くので、そのまま続行
+  }
+}
+let soundEnabled = getSoundEnabled();
+
 // ---- 効果音 ----
 // public/sounds/ に置いた音声ファイルをWeb Audio APIで鳴らす。<audio>要素の.play()を
 // 毎回呼ぶ方式だと、呼んでから実際に音が出るまでスマホで数百ms単位のラグが出ることが
@@ -62,6 +109,7 @@ function unlockAudio() {
 // playDurationMs: 「○正解」「第N問」等のポップアップの表示時間に合わせて途中で
 //   フェードアウトさせるための、再生開始からの長さ（ミリ秒）。nullなら最後まで再生する。
 function playSfx(name, { startAt = 0, playDurationMs = null, fadeMs = 150 } = {}) {
+  if (!soundEnabled) return;
   const buffer = sfxBuffers[name];
   if (!audioCtx || !buffer) return;
   if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
@@ -100,10 +148,66 @@ const gameScreen = document.getElementById('game-screen');
 const nameInput = document.getElementById('name-input');
 const modeTrainingBtn = document.getElementById('mode-training-btn');
 const modeFriendBtn = document.getElementById('mode-friend-btn');
+const profileModeCard = document.getElementById('profile-mode-card');
+const profileModeGuestBtn = document.getElementById('profile-mode-guest-btn');
+const profileModeAccountBtn = document.getElementById('profile-mode-account-btn');
+const iconPicker = document.getElementById('icon-picker');
 
 let hasJoined = false;
 let savedName = '';
 let selectedMode = null; // 'training' | 'friend'
+let joinIcon = null; // 参加時に送るアイコン（絵文字）。ゲスト等でnullなら名前の頭文字を表示する
+let profileModeIsAccount = false; // 初回のゲスト/アカウント作成タブでどちらを選んでいるか
+
+// アイコン選択グリッドを描画する。参加画面・設定ポップアップの2箇所で共通利用する。
+function renderIconPicker(container, selected, onSelect) {
+  container.innerHTML = '';
+  ICON_CHOICES.forEach((emoji) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-choice-btn' + (emoji === selected ? ' active' : '');
+    btn.textContent = emoji;
+    btn.addEventListener('click', () => onSelect(emoji));
+    container.appendChild(btn);
+  });
+}
+
+function selectJoinIcon(emoji) {
+  joinIcon = emoji;
+  renderIconPicker(iconPicker, joinIcon, selectJoinIcon);
+}
+
+function setProfileMode(mode) {
+  profileModeIsAccount = mode === 'account';
+  profileModeGuestBtn.classList.toggle('active', mode === 'guest');
+  profileModeAccountBtn.classList.toggle('active', mode === 'account');
+  if (mode === 'guest') {
+    iconPicker.classList.add('hidden');
+    joinIcon = null;
+  } else {
+    iconPicker.classList.remove('hidden');
+    selectJoinIcon(ICON_CHOICES[0]);
+  }
+}
+
+profileModeGuestBtn.addEventListener('click', () => setProfileMode('guest'));
+profileModeAccountBtn.addEventListener('click', () => setProfileMode('account'));
+
+// 保存済みプロフィール（アカウント作成済み）があれば名前・アイコンを復元してゲスト/アカウント
+// 作成の選択自体を省略し、無ければ選択から始める。
+function initProfileUi() {
+  const profile = getProfile();
+  if (profile) {
+    profileModeCard.classList.add('hidden');
+    iconPicker.classList.add('hidden');
+    nameInput.value = profile.name;
+    joinIcon = profile.icon;
+  } else {
+    profileModeCard.classList.remove('hidden');
+    setProfileMode('guest');
+  }
+}
+initProfileUi();
 
 function doJoin(name, mode) {
   savedName = name;
@@ -112,7 +216,7 @@ function doJoin(name, mode) {
   // 参加ボタンを押すまでの間に（他の人のプレイで）フェーズが進んでいても、
   // 参加した直後に届く最初のstateを「切り替わった」と誤判定して音を鳴らさないようにする。
   sfxPhaseInitialized = false;
-  socket.emit('join', { name, clientId, mode });
+  socket.emit('join', { name, clientId, mode, icon: joinIcon });
 }
 
 // 画面ロック・電波切れ等で切断された後、socket.ioが自動で再接続したときに
@@ -120,7 +224,7 @@ function doJoin(name, mode) {
 socket.on('connect', () => {
   if (hasJoined) {
     sfxPhaseInitialized = false;
-    socket.emit('join', { name: savedName, clientId, mode: selectedMode });
+    socket.emit('join', { name: savedName, clientId, mode: selectedMode, icon: joinIcon });
   }
 });
 
@@ -131,6 +235,11 @@ function startJoinFlow(mode) {
     return;
   }
   unlockAudio();
+  // 初めて「アカウント作成」を選んだ状態でここまで来たら、この時点で名前・アイコンを保存する
+  // （以後はこの画面が省略され、保存した内容で自動的に参加できるようになる）。
+  if (!profileModeCard.classList.contains('hidden') && profileModeIsAccount) {
+    saveProfile(name, joinIcon);
+  }
   // 直前まで別の部屋にいた場合、参加直後にすぐゲーム画面を表示すると、新しい部屋の状態が
   // 届くまでの一瞬だけ前の部屋の表示（CPU参加ボタンの有無、難易度の選択状態など）が
   // 残って見えてしまう。新しい部屋のstateが届く（＝画面が正しく更新される）まで待ってから
@@ -145,6 +254,88 @@ function startJoinFlow(mode) {
 modeTrainingBtn.addEventListener('click', () => startJoinFlow('training'));
 modeFriendBtn.addEventListener('click', () => startJoinFlow('friend'));
 
+// ---- 設定ポップアップ（参加画面からのみ開く。プロフィール編集・効果音ON/OFF） ----
+const settingsBtn = document.getElementById('settings-btn');
+const settingsOverlay = document.getElementById('settings-overlay');
+const settingsCloseBtn = document.getElementById('settings-close-btn');
+const settingsProfileView = document.getElementById('settings-profile-view');
+const settingsProfileEmpty = document.getElementById('settings-profile-empty');
+const settingsProfileEdit = document.getElementById('settings-profile-edit');
+const settingsProfileAvatar = document.getElementById('settings-profile-avatar');
+const settingsProfileName = document.getElementById('settings-profile-name');
+const settingsEditProfileBtn = document.getElementById('settings-edit-profile-btn');
+const settingsCreateProfileBtn = document.getElementById('settings-create-profile-btn');
+const settingsNameInput = document.getElementById('settings-name-input');
+const settingsIconPicker = document.getElementById('settings-icon-picker');
+const settingsEditCancelBtn = document.getElementById('settings-edit-cancel-btn');
+const settingsEditSaveBtn = document.getElementById('settings-edit-save-btn');
+const soundToggleCheckbox = document.getElementById('sound-toggle-checkbox');
+
+let settingsEditIcon = null;
+
+function selectSettingsIcon(emoji) {
+  settingsEditIcon = emoji;
+  renderIconPicker(settingsIconPicker, settingsEditIcon, selectSettingsIcon);
+}
+
+// プロフィールの有無に応じて「表示」か「未作成」のどちらかを見せる（編集フォームは閉じる）。
+function showSettingsProfileState() {
+  settingsProfileEdit.classList.add('hidden');
+  const profile = getProfile();
+  if (profile) {
+    settingsProfileView.classList.remove('hidden');
+    settingsProfileEmpty.classList.add('hidden');
+    settingsProfileAvatar.textContent = profile.icon;
+    settingsProfileName.textContent = profile.name;
+  } else {
+    settingsProfileView.classList.add('hidden');
+    settingsProfileEmpty.classList.remove('hidden');
+  }
+}
+
+function openSettings() {
+  showSettingsProfileState();
+  soundToggleCheckbox.checked = soundEnabled;
+  settingsOverlay.classList.remove('hidden');
+}
+
+function closeSettings() {
+  settingsOverlay.classList.add('hidden');
+}
+
+function openProfileEdit() {
+  const profile = getProfile();
+  settingsNameInput.value = profile ? profile.name : '';
+  selectSettingsIcon(profile ? profile.icon : ICON_CHOICES[0]);
+  settingsProfileView.classList.add('hidden');
+  settingsProfileEmpty.classList.add('hidden');
+  settingsProfileEdit.classList.remove('hidden');
+}
+
+settingsBtn.addEventListener('click', openSettings);
+settingsCloseBtn.addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', (e) => {
+  if (e.target === settingsOverlay) closeSettings();
+});
+settingsEditProfileBtn.addEventListener('click', openProfileEdit);
+settingsCreateProfileBtn.addEventListener('click', openProfileEdit);
+settingsEditCancelBtn.addEventListener('click', showSettingsProfileState);
+settingsEditSaveBtn.addEventListener('click', () => {
+  const name = settingsNameInput.value.trim();
+  if (!name) {
+    settingsNameInput.focus();
+    return;
+  }
+  saveProfile(name, settingsEditIcon);
+  // 参加画面側にも即座に反映する（ゲスト/アカウント作成の選択自体を今後省略できるように）。
+  initProfileUi();
+  showSettingsProfileState();
+});
+soundToggleCheckbox.addEventListener('change', () => {
+  soundEnabled = soundToggleCheckbox.checked;
+  setSoundEnabled(soundEnabled);
+});
+
 // ---- モード選択に戻る ----
 const backToModeBtn = document.getElementById('back-to-mode-btn');
 const leaveConfirmOverlay = document.getElementById('leave-confirm-overlay');
@@ -158,6 +349,9 @@ function leaveToModeSelect() {
   selectedMode = null;
   gameScreen.classList.add('hidden');
   joinScreen.classList.remove('hidden');
+  // 設定でプロフィールを作成/変更した直後の可能性があるので、ゲスト/アカウント作成の
+  // 選択欄の表示・非表示を再判定する。
+  initProfileUi();
 }
 
 backToModeBtn.addEventListener('click', () => {
@@ -353,6 +547,11 @@ function updateLetterCountdown(active, key, isFirstLetter) {
 
 // 上部の参加者バーは横並びの小さいチップ表示（人数が増えても1行に収まるよう縮む）。
 // 誰かが押した直後（buzzed/wrong/correct）は、その人のチップに反応時間を添える。
+// プロフィールでアイコン（絵文字）を設定していればそれを、無ければ名前の頭文字を表示する。
+function setAvatarContent(el, name, icon) {
+  el.textContent = icon || (name || '?').slice(0, 1);
+}
+
 function renderPlayerList(container, players, buzzedId, showReactionFor, reactionMs) {
   container.innerHTML = '';
   players
@@ -367,7 +566,7 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
       // アイコン用のスペース（今は名前の頭文字を丸の中に表示。将来カスタムアイコンに差し替え予定）。
       const avatar = document.createElement('span');
       avatar.className = 'player-avatar';
-      avatar.textContent = (p.name || '?').slice(0, 1);
+      setAvatarContent(avatar, p.name, p.icon);
       li.appendChild(avatar);
 
       const name = document.createElement('span');
@@ -635,7 +834,8 @@ socket.on('state', (state) => {
   wrongResult.classList.toggle('hidden', !showWrong);
   correctResult.classList.toggle('hidden', !showCorrect);
   if (showProgress) {
-    buzzAvatar.textContent = (buzzedName || '?').slice(0, 1);
+    const buzzedPlayer = players.find((p) => p.id === buzzedId);
+    setAvatarContent(buzzAvatar, buzzedName, buzzedPlayer && buzzedPlayer.icon);
     buzzCardStatus.textContent = isSelfBuzzed ? 'あなたが解答中…' : `${buzzedName} が解答中…`;
   }
   if (showWrong) {

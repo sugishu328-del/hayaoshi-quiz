@@ -134,10 +134,241 @@ h1 {
 }
 
 .join-hero {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
+}
+
+.settings-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+  box-shadow: var(--shadow-raised-sm);
+}
+
+/* ---- ゲスト／アカウント作成の切り替えタブ ---- */
+.profile-mode-tabs {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+}
+
+.profile-mode-tab {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-faint);
+  font-weight: bold;
+  font-size: 0.92rem;
+}
+
+.profile-mode-tab.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+/* ---- アイコン選択（プリセット絵文字） ---- */
+.icon-picker {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.icon-choice-btn {
+  padding: 8px 0;
+  border-radius: 12px;
+  border: 2px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.icon-choice-btn.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+/* ---- トグルスイッチの見た目（CPU参加・効果音など、複数箇所で共通利用） ---- */
+.toggle-switch {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: background 0.2s ease;
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.toggle-switch:checked {
+  background: var(--color-primary);
+}
+
+.toggle-switch:checked::after {
+  transform: translateX(16px);
+}
+
+/* ---- 設定ポップアップ ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 20;
+}
+
+.settings-card {
+  width: 100%;
+  max-width: 400px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: var(--shadow-raised);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: var(--color-text);
+}
+
+.settings-close-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-section-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--color-text-muted);
+}
+
+.settings-profile-view {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-profile-name {
+  flex: 1;
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.settings-text-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.settings-profile-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-profile-empty-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.settings-profile-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-edit-cancel-btn {
+  flex: 1;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+}
+
+.settings-edit-save-btn {
+  flex: 1;
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.sound-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--color-surface-alt);
+  box-shadow: var(--shadow-inset);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 0.92rem;
+  font-weight: bold;
+  cursor: pointer;
 }
 
 .mode-select {
@@ -472,41 +703,10 @@ button:disabled {
   cursor: pointer;
 }
 
-/* ネイティブのチェックボックスをスイッチ風の見た目に置き換える。
-   要素自体はチェックボックスのまま（checked/change/disabledがそのまま使える）。 */
-.cpu-toggle input {
-  appearance: none;
-  -webkit-appearance: none;
-  position: relative;
-  width: 36px;
-  height: 20px;
-  margin: 0;
-  border-radius: 999px;
-  background: var(--color-border-strong);
-  cursor: pointer;
-  flex: 0 0 auto;
-  transition: background 0.2s ease;
-}
-
-.cpu-toggle input::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s ease;
-}
-
-.cpu-toggle input:checked {
+/* ネイティブのチェックボックスをスイッチ風の見た目に置き換える。基本の見た目は
+   共通クラス.toggle-switchにまとめてあり、ここでは配色（テラコッタ）だけ上書きする。 */
+.cpu-toggle input.toggle-switch:checked {
   background: var(--color-quiz-accent);
-}
-
-.cpu-toggle input:checked::after {
-  transform: translateX(16px);
 }
 
 .room-settings {

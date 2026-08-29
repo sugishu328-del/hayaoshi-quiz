@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-const { questionBanks, DIFFICULTIES, CPU_ID, DISCONNECT_GRACE_MS } = require('./gameData');
+const { questionBanks, DIFFICULTIES, CPU_ID, DISCONNECT_GRACE_MS, ICON_CHOICES } = require('./gameData');
 const Room = require('./room');
 const { upsertPlayer } = require('./supabase');
 
@@ -121,9 +121,12 @@ io.on('connection', (socket) => {
   // 同一人物を判定するので、再接続（画面ロック・電波切れ等でのsocket再接続）してもスコアを
   // 引き継げる。socket.idは接続のたびに変わるため、識別には使わない。
   onLimited('join', (payload) => {
-    const { name, clientId, mode } = payload || {};
+    const { name, clientId, mode, icon } = payload || {};
     const id = (typeof clientId === 'string' && clientId.trim()) ? clientId.trim().slice(0, 100) : null;
     if (!id || id === CPU_ID) return; // clientIdを送ってこない不正なクライアント、CPU用の予約IDは参加させない
+    // アイコンは決められた絵文字一覧からのみ受け付ける（自由入力にすると不適切な文字列を
+    // 表示させられてしまうため）。ゲスト参加時などはnullのまま（=名前の頭文字を表示）。
+    const cleanIcon = (typeof icon === 'string' && ICON_CHOICES.includes(icon)) ? icon : null;
 
     // トレーニングモードは「持ち主(clientId)専用の部屋」に入れる。まだ無ければここで作る。
     // フレンド対戦モードは今まで通り全員が入る既定の部屋のまま。
@@ -165,16 +168,17 @@ io.on('connection', (socket) => {
     const existing = room.players.get(id);
     if (existing) {
       existing.name = cleanName;
+      existing.icon = cleanIcon;
       existing.connected = true;
       if (existing.disconnectTimer) {
         clearTimeout(existing.disconnectTimer);
         existing.disconnectTimer = null;
       }
     } else {
-      room.players.set(id, { name: cleanName, score: 0, connected: true, disconnectTimer: null, wrongCount: 0 });
+      room.players.set(id, { name: cleanName, icon: cleanIcon, score: 0, connected: true, disconnectTimer: null, wrongCount: 0 });
     }
     room.broadcastState();
-    upsertPlayer(id, cleanName).catch(() => {});
+    upsertPlayer(id, cleanName, cleanIcon).catch(() => {});
   });
 
   // 「モード選択に戻る」で明示的に部屋を離れる。画面ロック等の一時切断とは違い、

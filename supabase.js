@@ -9,12 +9,15 @@ if (!supabase) {
   console.warn('SUPABASE_URL / SUPABASE_SECRET_KEY が未設定のため、プレイヤー情報の永続化は無効です。');
 }
 
-// clientId単位でプレイヤーの表示名を記録・更新する。失敗してもゲーム進行は止めない（fire-and-forget）。
-async function upsertPlayer(clientId, displayName) {
+// clientId単位でプレイヤーの表示名・アイコンを記録・更新する。失敗してもゲーム進行は止めない（fire-and-forget）。
+// icon省略時（ゲスト参加時）は、以前アカウント作成時に保存したicon_idを消してしまわないよう更新しない。
+async function upsertPlayer(clientId, displayName, icon) {
   if (!supabase) return;
+  const payload = { client_id: clientId, display_name: displayName };
+  if (icon) payload.icon_id = icon;
   const { error } = await supabase
     .from('players')
-    .upsert({ client_id: clientId, display_name: displayName }, { onConflict: 'client_id' });
+    .upsert(payload, { onConflict: 'client_id' });
   if (error) console.error('Supabase upsertPlayer failed:', error.message);
 }
 

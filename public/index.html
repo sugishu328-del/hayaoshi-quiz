@@ -13,12 +13,20 @@
 
 <div id="join-screen" class="screen">
   <div class="join-hero">
+    <button type="button" id="settings-btn" class="settings-btn" aria-label="設定">⚙</button>
     <h1 class="app-title"><span>早押しクイズ</span><span>トレーニング</span></h1>
     <p class="app-tagline">～早押しが強くなりたい全ての人へ～</p>
     <button type="button" class="buzz-btn join-hero-buzz" tabindex="-1">押す！</button>
   </div>
+  <div id="profile-mode-card" class="card hidden">
+    <div class="profile-mode-tabs">
+      <button type="button" id="profile-mode-guest-btn" class="profile-mode-tab active">ゲスト</button>
+      <button type="button" id="profile-mode-account-btn" class="profile-mode-tab">アカウント作成</button>
+    </div>
+  </div>
   <div class="card">
     <input id="name-input" type="text" placeholder="なまえを入力" maxlength="20" />
+    <div id="icon-picker" class="icon-picker hidden"></div>
   </div>
   <div class="card">
     <div class="mode-select">
@@ -30,6 +38,47 @@
         <span class="mode-btn-title">フレンド対戦モード</span>
         <span class="mode-btn-desc">友達と早押し対戦</span>
       </button>
+    </div>
+  </div>
+</div>
+
+<div id="settings-overlay" class="overlay hidden">
+  <div class="settings-card">
+    <div class="settings-header">
+      <p class="settings-title">設定</p>
+      <button type="button" id="settings-close-btn" class="settings-close-btn" aria-label="閉じる">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <p class="settings-section-title">プロフィール</p>
+
+      <div id="settings-profile-view" class="settings-profile-view hidden">
+        <span id="settings-profile-avatar" class="player-avatar"></span>
+        <span id="settings-profile-name" class="settings-profile-name"></span>
+        <button type="button" id="settings-edit-profile-btn" class="settings-text-btn">編集</button>
+      </div>
+
+      <div id="settings-profile-empty" class="settings-profile-empty hidden">
+        <p class="settings-profile-empty-text">ゲストとして参加しています。名前とアイコンを保存するには、アカウントを作成してください。</p>
+        <button type="button" id="settings-create-profile-btn" class="settings-text-btn">アカウント作成する</button>
+      </div>
+
+      <div id="settings-profile-edit" class="settings-profile-edit hidden">
+        <input id="settings-name-input" type="text" placeholder="なまえを入力" maxlength="20" />
+        <div id="settings-icon-picker" class="icon-picker"></div>
+        <div class="settings-edit-actions">
+          <button type="button" id="settings-edit-cancel-btn" class="settings-edit-cancel-btn">キャンセル</button>
+          <button type="button" id="settings-edit-save-btn" class="settings-edit-save-btn">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <p class="settings-section-title">効果音</p>
+      <label class="sound-toggle">
+        <span class="sound-toggle-label">効果音を鳴らす</span>
+        <input type="checkbox" id="sound-toggle-checkbox" class="toggle-switch" />
+      </label>
     </div>
   </div>
 </div>
@@ -71,7 +120,7 @@
           <p class="setup-label">ルール設定</p>
           <label class="cpu-toggle">
             <span class="cpu-toggle-label">CPU有り</span>
-            <input type="checkbox" id="cpu-toggle-checkbox" />
+            <input type="checkbox" id="cpu-toggle-checkbox" class="toggle-switch" />
           </label>
         </div>
         <div class="room-settings">
