@@ -539,13 +539,19 @@ socket.on('state', (state) => {
   currentNoBuzzDeadline = noBuzzDeadline;
   currentlyStarted = started;
 
-  // 誰かが押して'open'から抜けた（＝中断。時間切れでreveal/correctRevealに切り替わった
-  // 場合も含む）→ その時点の幅で止める。押されるとサーバー側の締切も同時にnullへ
-  // 変わるので、先にこちらを判定しないと下のリセット条件と誤って一致してしまう。
-  // それ以外で締切が変わった＝新しい問題の待機が始まった → バーを満幅にリセットする。
-  if (prevPhase === 'open' && currentPhase !== 'open' && revealTimerRunning) {
+  // 「第N問」（announce）が表示されるタイミングで、次の問題に備えてバーを満幅に戻す。
+  // 前の問題が誰かが押して終わった場合、締切は前後ともnullのままになる（押された時点で
+  // 一度nullへ変わっている）ので、締切の変化だけを見ていると次のannounceでリセットが
+  // 発火せず、前の問題で縮んだ/止まった幅が「第N問」表示中も残ってしまう。そのため
+  // announceに入った瞬間は締切の変化に関わらず必ずリセットする。
+  if (currentPhase === 'announce') {
+    resetRevealTimerBar();
+  } else if (prevPhase === 'open' && currentPhase !== 'open' && revealTimerRunning) {
+    // 誰かが押して'open'から抜けた（＝中断。時間切れでreveal/correctRevealに
+    // 切り替わった場合も含む）→ その時点の幅で止める。
     freezeRevealTimerBar();
   } else if (currentNoBuzzDeadline !== prevNoBuzzDeadline) {
+    // 締切が新しい値に変わった（念のためのフォールバック）→ 満幅にリセットする。
     resetRevealTimerBar();
   }
 
