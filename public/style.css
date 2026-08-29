@@ -73,11 +73,36 @@ body {
   align-items: center;
 }
 
+/* 設定ボタンを常に画面最上部に固定表示するため、ゲーム画面（.top-bar / .game-body）と
+   同じ構造にする：#join-screen自体はスクロールさせず、その下の.join-contentだけが
+   スクロールする。これにより中央寄せの内容がどれだけ長くなっても設定ボタンの位置は動かない。 */
 #join-screen {
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.join-top-bar {
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  padding: max(10px, env(safe-area-inset-top)) 16px 0;
+}
+
+.join-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   gap: 16px;
-  /* 下側を少し厚めにして、中央寄せの内容全体を画面のやや上寄りに見せる */
-  padding: 24px 16px 10vh;
+  /* 下側を少し厚めにして、中央寄せの内容全体を画面のやや上寄りに見せる。上側は、
+     タイトル文字の縁取り(-webkit-text-stroke)がスクロール領域の上端で見切れない
+     よう、ある程度の余白を確保しておく。 */
+  padding: 20px 16px 10vh;
 }
 
 .hidden {
@@ -134,7 +159,6 @@ h1 {
 }
 
 .join-hero {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -142,17 +166,21 @@ h1 {
 }
 
 .settings-btn {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: 999px;
   background: var(--color-surface);
   color: var(--color-text-muted);
-  font-size: 1.2rem;
+  font-size: 0.85rem;
+  font-weight: bold;
   box-shadow: var(--shadow-raised-sm);
+}
+
+.settings-btn-icon {
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 /* ---- ゲスト／アカウント作成の切り替えタブ ---- */
@@ -200,6 +228,7 @@ h1 {
   border-color: var(--color-primary);
   background: var(--color-primary-light);
 }
+
 
 /* ---- トグルスイッチの見た目（CPU参加・効果音など、複数箇所で共通利用） ---- */
 .toggle-switch {
@@ -414,6 +443,22 @@ h1 {
   flex-direction: column;
   gap: 12px;
   box-shadow: var(--shadow-raised);
+}
+
+/* アカウント作成済みの人向け：参加画面の名前入力欄の代わりに表示する、
+   アイコン+名前のカード。タップすると設定ポップアップのプロフィール編集を開く。 */
+.profile-display-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.profile-display-name {
+  font-weight: bold;
+  font-size: 1.05rem;
+  color: var(--color-text);
 }
 
 input[type="text"] {

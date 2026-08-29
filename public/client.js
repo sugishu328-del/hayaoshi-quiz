@@ -152,6 +152,10 @@ const profileModeCard = document.getElementById('profile-mode-card');
 const profileModeGuestBtn = document.getElementById('profile-mode-guest-btn');
 const profileModeAccountBtn = document.getElementById('profile-mode-account-btn');
 const iconPicker = document.getElementById('icon-picker');
+const nameCard = document.getElementById('name-card');
+const profileDisplayCard = document.getElementById('profile-display-card');
+const profileDisplayAvatar = document.getElementById('profile-display-avatar');
+const profileDisplayName = document.getElementById('profile-display-name');
 
 let hasJoined = false;
 let savedName = '';
@@ -193,21 +197,32 @@ function setProfileMode(mode) {
 profileModeGuestBtn.addEventListener('click', () => setProfileMode('guest'));
 profileModeAccountBtn.addEventListener('click', () => setProfileMode('account'));
 
-// 保存済みプロフィール（アカウント作成済み）があれば名前・アイコンを復元してゲスト/アカウント
-// 作成の選択自体を省略し、無ければ選択から始める。
+// 保存済みプロフィール（アカウント作成済み）があれば、ゲスト/アカウント作成の選択と
+// 名前入力欄自体を省略し、代わりにアイコン+名前を「表示」するカードに差し替える。
+// 無ければ今まで通り選択・名前入力から始める。
 function initProfileUi() {
   const profile = getProfile();
   if (profile) {
     profileModeCard.classList.add('hidden');
-    iconPicker.classList.add('hidden');
-    nameInput.value = profile.name;
+    nameCard.classList.add('hidden');
+    profileDisplayCard.classList.remove('hidden');
+    profileDisplayAvatar.textContent = profile.icon;
+    profileDisplayName.textContent = profile.name;
     joinIcon = profile.icon;
   } else {
     profileModeCard.classList.remove('hidden');
+    nameCard.classList.remove('hidden');
+    profileDisplayCard.classList.add('hidden');
     setProfileMode('guest');
   }
 }
 initProfileUi();
+
+// プロフィール表示カードをタップすると、設定ポップアップのプロフィール編集を直接開く。
+profileDisplayCard.addEventListener('click', () => {
+  openSettings();
+  openProfileEdit();
+});
 
 function doJoin(name, mode) {
   savedName = name;
@@ -229,7 +244,8 @@ socket.on('connect', () => {
 });
 
 function startJoinFlow(mode) {
-  const name = nameInput.value.trim();
+  const profile = getProfile();
+  const name = profile ? profile.name : nameInput.value.trim();
   if (!name) {
     nameInput.focus();
     return;
