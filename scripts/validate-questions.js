@@ -17,6 +17,13 @@ const DIFFICULTIES = ['A', 'B', 'C'];
 // このアプリは1文字ずつ4択で答える方式なので、二択形式の問題は使わない方針。
 const BINARY_CHOICE_PATTERN = /のうちどちら/;
 
+// 濁点・半濁点が「か゛」「は゜」のように結合前提の単独文字として残っていないかの
+// チェック用パターン（正しくは「が」「ぱ」のように1文字に合成されているべき）。
+// 単独のまま残っていると、gameData.jsが1文字ずつ選択肢の文字プールを作る際に
+// 濁点・半濁点だけが独立した1文字として紛れ込み、無関係な問題の選択肢にまで
+// 「゛」だけの選択肢が出てしまう（2026-08-29に実際に発生した不具合）。
+const STRAY_COMBINING_MARK_PATTERN = /[゙゚゛゜ﾞﾟ]/;
+
 function isValidQuestionEntry(item) {
   if (!item || typeof item !== 'object') return false;
   if (typeof item.question !== 'string' || !item.question) return false;
@@ -106,7 +113,27 @@ function main() {
         }
       }
 
-      // 8. 問題文の完全重複（難易度をまたいでバンク全体でチェック）
+      // 8. 濁点・半濁点が単独文字のまま残っていないか（answer/input/distractors全体）
+      const combiningMarkFields = [
+        ['answer', item.answer],
+        ['input', item.input],
+        ...item.distractors.flatMap((dist, di) => [
+          [`distractors[${di}].name`, dist.name],
+          [`distractors[${di}].input`, dist.input],
+        ]),
+      ];
+      combiningMarkFields.forEach(([field, value]) => {
+        if (typeof value === 'string' && STRAY_COMBINING_MARK_PATTERN.test(value)) {
+          errors.push({
+            category: '濁点・半濁点が単独文字のまま残っている',
+            difficulty: d,
+            index: i,
+            detail: `${field}="${value}"`,
+          });
+        }
+      });
+
+      // 9. 問題文の完全重複（難易度をまたいでバンク全体でチェック）
       if (questionTextSeen.has(item.question)) {
         errors.push({
           category: '問題文の重複',
