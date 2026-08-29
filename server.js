@@ -1,9 +1,11 @@
+require('dotenv').config();
 const path = require('path');
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { questionBanks, DIFFICULTIES, CPU_ID, DISCONNECT_GRACE_MS } = require('./gameData');
 const Room = require('./room');
+const { upsertPlayer } = require('./supabase');
 
 const app = express();
 const httpServer = createServer(app);
@@ -172,6 +174,7 @@ io.on('connection', (socket) => {
       room.players.set(id, { name: cleanName, score: 0, connected: true, disconnectTimer: null, wrongCount: 0 });
     }
     room.broadcastState();
+    upsertPlayer(id, cleanName).catch(() => {});
   });
 
   // 「モード選択に戻る」で明示的に部屋を離れる。画面ロック等の一時切断とは違い、

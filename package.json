@@ -8,6 +8,8 @@
     "validate-questions": "node scripts/validate-questions.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "socket.io": "^4.7.5"
   }
