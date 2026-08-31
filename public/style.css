@@ -87,7 +87,9 @@ body {
   width: 100%;
   display: flex;
   align-items: center;
-  padding: max(10px, env(safe-area-inset-top)) 16px 0;
+  background: var(--color-primary-light);
+  padding: max(14px, env(safe-area-inset-top)) 16px 14px;
+  box-shadow: 0 2px 8px rgba(59, 47, 160, 0.08);
 }
 
 .join-content {
@@ -164,18 +166,13 @@ h1 {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 14px;
+  padding: 10px 18px;
   border-radius: 999px;
   background: var(--color-surface);
   color: var(--color-text-muted);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: bold;
   box-shadow: var(--shadow-raised-sm);
-}
-
-.settings-btn-icon {
-  font-size: 1.05rem;
-  line-height: 1;
 }
 
 /* ---- ゲスト／アカウント作成の切り替えタブ ---- */
@@ -576,14 +573,14 @@ h1 {
 }
 
 .profile-display-card .player-avatar {
-  width: 28px;
-  height: 28px;
-  font-size: 0.9rem;
+  width: 36px;
+  height: 36px;
+  font-size: 1.1rem;
 }
 
 .profile-display-name {
   font-weight: bold;
-  font-size: 0.85rem;
+  font-size: 1rem;
   color: var(--color-text-muted);
 }
 
@@ -1500,4 +1497,20 @@ input:disabled {
   pointer-events: none;
   max-width: calc(100% - 40px);
   text-align: center;
+}
+
+/* ---- 通信切断中に画面上部に出す常時バナー ---- */
+.connection-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 16px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: bold;
+  text-align: center;
+  z-index: 200;
 }

@@ -245,6 +245,8 @@ function doJoin(name, mode, code) {
   socket.emit('join', { name, clientId, mode, icon: joinIcon, code });
 }
 
+const connectionBanner = document.getElementById('connection-banner');
+
 // 画面ロック・電波切れ等で切断された後、socket.ioが自動で再接続したときに
 // 自動で再参加させる（clientId・modeが同じなのでサーバー側で同じ部屋・スコアに戻れる）。
 // フレンド部屋の場合は合言葉も一緒に送り直し、同じ部屋に戻れるようにする。
@@ -254,6 +256,14 @@ socket.on('connect', () => {
     socket.emit('join', { name: savedName, clientId, mode: selectedMode, icon: joinIcon, code: joinedFriendCode });
   }
   refreshBlockList();
+  connectionBanner.classList.add('hidden');
+});
+
+// 電波切れ・スリープ復帰・サーバー再起動などで切断された間、何も表示されないと
+// ユーザーが気づけないまま置き去りにされてしまうため、常時バナーで知らせる。
+// socket.ioは既定でreconnection: true（無期限に再試行）のため、ここでは表示するだけでよい。
+socket.on('disconnect', () => {
+  connectionBanner.classList.remove('hidden');
 });
 
 // 「その合言葉の部屋が見つかりません」等、参加に失敗した時にサーバーから届く。
