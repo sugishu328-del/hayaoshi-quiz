@@ -133,34 +133,38 @@
         </div>
         <div class="room-settings">
           <div class="stepper-field">
-            <span class="stepper-label">🏆 先取点数</span>
+            <span class="stepper-label">勝利点数</span>
             <div class="stepper-controls">
               <button type="button" class="step-btn" data-step-target="win-score-input" data-step-delta="-1">－</button>
               <input type="number" id="win-score-input" min="0" max="99" placeholder="制限なし" inputmode="numeric" />
+              <span id="win-score-unit" class="stepper-unit hidden">点</span>
               <button type="button" class="step-btn" data-step-target="win-score-input" data-step-delta="1">＋</button>
             </div>
           </div>
           <div class="stepper-field">
-            <span class="stepper-label">📋 出題数上限</span>
+            <span class="stepper-label">出題数</span>
             <div class="stepper-controls">
               <button type="button" class="step-btn" data-step-target="question-limit-input" data-step-delta="-1">－</button>
               <input type="number" id="question-limit-input" min="0" max="99" placeholder="制限なし" inputmode="numeric" />
+              <span id="question-limit-unit" class="stepper-unit hidden">問</span>
               <button type="button" class="step-btn" data-step-target="question-limit-input" data-step-delta="1">＋</button>
             </div>
           </div>
           <div class="stepper-field">
-            <span class="stepper-label">✕ 誤答ペナルティ</span>
+            <span class="stepper-label">誤答ペナルティ</span>
             <div class="stepper-controls">
               <button type="button" class="step-btn" data-step-target="wrong-penalty-input" data-step-delta="-1">－</button>
               <input type="number" id="wrong-penalty-input" min="0" max="99" placeholder="なし" inputmode="numeric" />
+              <span id="wrong-penalty-unit" class="stepper-unit hidden">点減点</span>
               <button type="button" class="step-btn" data-step-target="wrong-penalty-input" data-step-delta="1">＋</button>
             </div>
           </div>
           <div class="stepper-field">
-            <span class="stepper-label">🚫 誤答許容回数</span>
+            <span class="stepper-label">誤答上限</span>
             <div class="stepper-controls">
               <button type="button" class="step-btn" data-step-target="wrong-limit-input" data-step-delta="-1">－</button>
               <input type="number" id="wrong-limit-input" min="0" max="99" placeholder="無制限" inputmode="numeric" />
+              <span id="wrong-limit-unit" class="stepper-unit hidden">回</span>
               <button type="button" class="step-btn" data-step-target="wrong-limit-input" data-step-delta="1">＋</button>
             </div>
           </div>

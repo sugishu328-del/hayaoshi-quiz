@@ -395,6 +395,18 @@ const winScoreInput = document.getElementById('win-score-input');
 const questionLimitInput = document.getElementById('question-limit-input');
 const wrongPenaltyInput = document.getElementById('wrong-penalty-input');
 const wrongLimitInput = document.getElementById('wrong-limit-input');
+const winScoreUnit = document.getElementById('win-score-unit');
+const questionLimitUnit = document.getElementById('question-limit-unit');
+const wrongPenaltyUnit = document.getElementById('wrong-penalty-unit');
+const wrongLimitUnit = document.getElementById('wrong-limit-unit');
+
+// 「制限なし」等のプレースホルダー表示中は単位を隠し、数値が入っている時だけ見せる。
+function syncStepperUnit(input, unitEl) {
+  unitEl.classList.toggle('hidden', input.value === '');
+}
+[[winScoreInput, winScoreUnit], [questionLimitInput, questionLimitUnit], [wrongPenaltyInput, wrongPenaltyUnit], [wrongLimitInput, wrongLimitUnit]].forEach(([input, unit]) => {
+  input.addEventListener('input', () => syncStepperUnit(input, unit));
+});
 const startGameBtn = document.getElementById('start-game-btn');
 const endGameBtn = document.getElementById('end-game-btn');
 const questionNumberBadge = document.getElementById('question-number-badge');
@@ -813,6 +825,10 @@ socket.on('state', (state) => {
   if (document.activeElement !== questionLimitInput) questionLimitInput.value = questionLimit > 0 ? questionLimit : '';
   if (document.activeElement !== wrongPenaltyInput) wrongPenaltyInput.value = wrongPenalty > 0 ? wrongPenalty : '';
   if (document.activeElement !== wrongLimitInput) wrongLimitInput.value = wrongLimit > 0 ? wrongLimit : '';
+  syncStepperUnit(winScoreInput, winScoreUnit);
+  syncStepperUnit(questionLimitInput, questionLimitUnit);
+  syncStepperUnit(wrongPenaltyInput, wrongPenaltyUnit);
+  syncStepperUnit(wrongLimitInput, wrongLimitUnit);
 
   gameOverOverlay.classList.toggle('hidden', phase !== 'gameOver');
   if (phase === 'gameOver') {

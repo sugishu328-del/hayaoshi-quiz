@@ -784,7 +784,16 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+/* 数値が入っている時だけ表示する単位（点・問・回など）。空欄（制限なし等の
+   プレースホルダー表示中）は単位だけ浮いて見えないよう非表示にする。 */
+.stepper-unit {
+  font-size: 0.72rem;
+  font-weight: bold;
+  color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
 .step-btn {
