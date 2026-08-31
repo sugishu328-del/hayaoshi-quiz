@@ -380,6 +380,51 @@ h1 {
   color: #fff;
 }
 
+.settings-danger-link {
+  align-self: flex-start;
+  background: none;
+  color: var(--color-danger-dark);
+  padding: 4px 0;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.settings-block-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-block-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+  box-shadow: var(--shadow-inset);
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.settings-block-list li button {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  background: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.settings-block-list-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
 .sound-toggle {
   width: 100%;
   display: flex;
@@ -655,6 +700,7 @@ input:disabled {
 .player-list li {
   flex: 0 0 auto;
   width: 80px;
+  cursor: pointer;
   /* 高さはコンテンツに合わせた自然な高さのまま。反応時間バッジはposition:absoluteで
      レイアウトから切り離してあるので、表示・非表示でこの高さが変わることはない
      （高さを固定すると逆にflexの縮小で名前・得点が潰れて見えなくなってしまう）。 */
@@ -1401,4 +1447,57 @@ input:disabled {
 
 .choice-btn:disabled {
   opacity: 0.5;
+}
+
+/* ---- 参加者タップ時の通報／ブロックメニュー ---- */
+.player-action-buttons {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-action-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-weight: bold;
+  box-shadow: var(--shadow-raised-sm);
+}
+
+.report-reason-choices {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.report-reason-btn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-weight: bold;
+  box-shadow: var(--shadow-raised-sm);
+}
+
+/* ---- 画面下部に一時的に出す通知（送信しました、等） ---- */
+.toast {
+  position: fixed;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 22, 34, 0.88);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  z-index: 100;
+  pointer-events: none;
+  max-width: calc(100% - 40px);
+  text-align: center;
 }

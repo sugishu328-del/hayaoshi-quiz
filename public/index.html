@@ -106,6 +106,8 @@
           <button type="button" id="settings-edit-save-btn" class="settings-edit-save-btn">保存</button>
         </div>
       </div>
+
+      <button type="button" id="settings-delete-account-btn" class="settings-danger-link">アカウントを削除</button>
     </div>
 
     <div class="settings-section">
@@ -114,6 +116,26 @@
         <span class="sound-toggle-label">サウンドあり</span>
         <input type="checkbox" id="sound-toggle-checkbox" class="toggle-switch" />
       </label>
+    </div>
+
+    <div class="settings-section">
+      <p class="settings-section-title">ブロックリスト</p>
+      <ul id="settings-block-list" class="settings-block-list"></ul>
+      <p id="settings-block-list-empty" class="settings-block-list-empty">ブロック中のユーザーはいません</p>
+    </div>
+
+    <div class="settings-section">
+      <a href="/privacy.html" target="_blank" rel="noopener" class="settings-text-btn">プライバシーポリシー</a>
+    </div>
+  </div>
+</div>
+
+<div id="delete-account-confirm-overlay" class="buzz-overlay hidden">
+  <div class="buzz-card end-confirm-card">
+    <p class="end-confirm-message">アカウントを削除しますか？<br />保存された名前・アイコンは削除され、元に戻せません。</p>
+    <div class="end-confirm-actions">
+      <button type="button" id="delete-account-cancel-btn" class="end-confirm-cancel">キャンセル</button>
+      <button type="button" id="delete-account-ok-btn" class="end-confirm-ok">削除する</button>
     </div>
   </div>
 </div>
@@ -301,7 +323,42 @@
       </ul>
     </div>
   </div>
+
+  <div id="player-action-overlay" class="buzz-overlay hidden">
+    <div class="buzz-card end-confirm-card">
+      <p id="player-action-target-name" class="end-confirm-message"></p>
+      <div class="player-action-buttons">
+        <button type="button" id="player-action-report-btn" class="player-action-btn">通報する</button>
+        <button type="button" id="player-action-block-btn" class="player-action-btn">ブロックする</button>
+      </div>
+      <button type="button" id="player-action-cancel-btn" class="friend-back-btn">キャンセル</button>
+    </div>
+  </div>
+
+  <div id="report-reason-overlay" class="buzz-overlay hidden">
+    <div class="buzz-card end-confirm-card">
+      <p class="end-confirm-message">通報の理由を選んでください</p>
+      <div class="report-reason-choices">
+        <button type="button" class="report-reason-btn" data-reason="不適切な名前">不適切な名前</button>
+        <button type="button" class="report-reason-btn" data-reason="迷惑行為">迷惑行為</button>
+        <button type="button" class="report-reason-btn" data-reason="その他">その他</button>
+      </div>
+      <button type="button" id="report-reason-cancel-btn" class="friend-back-btn">キャンセル</button>
+    </div>
+  </div>
+
+  <div id="block-confirm-overlay" class="buzz-overlay hidden">
+    <div class="buzz-card end-confirm-card">
+      <p id="block-confirm-message" class="end-confirm-message"></p>
+      <div class="end-confirm-actions">
+        <button type="button" id="block-confirm-cancel-btn" class="end-confirm-cancel">キャンセル</button>
+        <button type="button" id="block-confirm-ok-btn" class="end-confirm-ok">ブロックする</button>
+      </div>
+    </div>
+  </div>
 </div>
+
+<div id="toast" class="toast hidden"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="client.js"></script>

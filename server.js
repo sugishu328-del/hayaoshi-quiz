@@ -5,7 +5,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { questionBanks, DIFFICULTIES, CPU_ID, DISCONNECT_GRACE_MS, ICON_CHOICES } = require('./gameData');
 const Room = require('./room');
-const { upsertPlayer } = require('./supabase');
+const { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount } = require('./supabase');
 
 const app = express();
 const httpServer = createServer(app);
@@ -386,6 +386,68 @@ io.on('connection', (socket) => {
     if (!room.started || room.phase !== 'buzzed' || socket.data.clientId !== room.buzzedId) return;
     if (typeof choice !== 'string' || !room.letterChoices.includes(choice)) return;
     room.resolveLetterChoice(choice);
+  });
+
+  // 通報・ブロック・アカウント削除はclientIdをpayloadで明示的に受け取る（部屋に参加していない
+  // 状態＝設定画面からのブロックリスト管理などでも使えるようにするため、socket.data.clientId
+  // 〈=join済みの証〉には依存しない）。
+  function cleanClientIdField(value) {
+    return (typeof value === 'string' && value.trim()) ? value.trim().slice(0, 100) : null;
+  }
+
+  onLimited('report:submit', (payload) => {
+    const { clientId, reportedClientId, reportedName, reason } = payload || {};
+    const reporterId = cleanClientIdField(clientId);
+    const targetId = cleanClientIdField(reportedClientId);
+    if (!reporterId || !targetId || reporterId === targetId) return;
+    const cleanName = (typeof reportedName === 'string' ? reportedName : '').slice(0, 20);
+    const cleanReason = (typeof reason === 'string' ? reason : '').slice(0, 50);
+    submitReport(reporterId, targetId, cleanName, socket.data.roomId || null, cleanReason).catch(() => {});
+  });
+
+  onLimited('block:add', (payload, ack) => {
+    const { clientId, blockedClientId, blockedName } = payload || {};
+    const blockerId = cleanClientIdField(clientId);
+    const targetId = cleanClientIdField(blockedClientId);
+    if (!blockerId || !targetId || blockerId === targetId) return;
+    const cleanName = (typeof blockedName === 'string' ? blockedName : '').slice(0, 20);
+    addBlock(blockerId, targetId, cleanName)
+      .then(() => { if (typeof ack === 'function') ack({ ok: true }); })
+      .catch(() => { if (typeof ack === 'function') ack({ ok: false }); });
+  });
+
+  onLimited('block:remove', (payload, ack) => {
+    const { clientId, blockedClientId } = payload || {};
+    const blockerId = cleanClientIdField(clientId);
+    const targetId = cleanClientIdField(blockedClientId);
+    if (!blockerId || !targetId) return;
+    removeBlock(blockerId, targetId)
+      .then(() => { if (typeof ack === 'function') ack({ ok: true }); })
+      .catch(() => { if (typeof ack === 'function') ack({ ok: false }); });
+  });
+
+  onLimited('block:list', (payload, ack) => {
+    const id = cleanClientIdField((payload || {}).clientId);
+    if (!id || typeof ack !== 'function') return;
+    getBlockList(id).then((list) => ack(list)).catch(() => ack([]));
+  });
+
+  onLimited('account:delete', (payload, ack) => {
+    const id = cleanClientIdField((payload || {}).clientId);
+    if (!id) return;
+    // 削除と同時に、今いる部屋からも退出させる（leaveと同じ後片付け）。
+    const room = getRoomForSocket(socket);
+    if (room && room.players.has(id)) {
+      const wasBuzzed = removePlayer(room, id);
+      handlePlayerDeparture(room, wasBuzzed);
+      destroyRoomIfEmpty(room);
+      socket.leave(room.id);
+    }
+    socket.data.clientId = null;
+    socket.data.roomId = null;
+    deleteAccount(id)
+      .then(() => { if (typeof ack === 'function') ack({ ok: true }); })
+      .catch(() => { if (typeof ack === 'function') ack({ ok: false }); });
   });
 
   socket.on('disconnect', () => {

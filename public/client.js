@@ -59,6 +59,15 @@ function saveProfile(name, icon) {
   }
 }
 
+// アカウント削除時に呼ぶ。保存していたプロフィールを消し、次回からゲスト扱いに戻す。
+function clearProfile() {
+  try {
+    localStorage.removeItem(PROFILE_KEY);
+  } catch (e) {
+    // 何もできることはない
+  }
+}
+
 // ---- 効果音のON/OFF設定 ----
 const SOUND_ENABLED_KEY = 'hayaoshi_sound_enabled';
 
@@ -244,6 +253,7 @@ socket.on('connect', () => {
     sfxPhaseInitialized = false;
     socket.emit('join', { name: savedName, clientId, mode: selectedMode, icon: joinIcon, code: joinedFriendCode });
   }
+  refreshBlockList();
 });
 
 // 「その合言葉の部屋が見つかりません」等、参加に失敗した時にサーバーから届く。
@@ -352,6 +362,8 @@ const settingsIconPicker = document.getElementById('settings-icon-picker');
 const settingsEditCancelBtn = document.getElementById('settings-edit-cancel-btn');
 const settingsEditSaveBtn = document.getElementById('settings-edit-save-btn');
 const soundToggleCheckbox = document.getElementById('sound-toggle-checkbox');
+const settingsBlockList = document.getElementById('settings-block-list');
+const settingsBlockListEmpty = document.getElementById('settings-block-list-empty');
 
 let settingsEditIcon = null;
 
@@ -417,6 +429,81 @@ soundToggleCheckbox.addEventListener('change', () => {
   soundEnabled = soundToggleCheckbox.checked;
   setSoundEnabled(soundEnabled);
 });
+
+// ---- 画面下部に一時的に出す通知（送信しました、等） ----
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function showToast(message) {
+  toastEl.textContent = message;
+  toastEl.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 2200);
+}
+
+// ---- ブロックリスト（clientId -> 名前。自分がブロックした相手の表示を伏せるのに使う） ----
+// 効果は今のところ「自分の画面上でその相手の名前・アイコンを伏せる」表示上のミュートのみ
+// （合言葉制のため見知らぬ人との自動マッチングは存在しない）。サーバー側（Supabase）に保存し、
+// 将来マッチング機能を追加した際にすぐ活用できるようにしてある。
+const blockedPlayers = new Map();
+
+function refreshBlockList() {
+  socket.emit('block:list', { clientId }, (list) => {
+    blockedPlayers.clear();
+    (list || []).forEach((row) => blockedPlayers.set(row.clientId, row.name));
+    renderSettingsBlockList();
+  });
+}
+
+function renderSettingsBlockList() {
+  settingsBlockList.innerHTML = '';
+  settingsBlockListEmpty.classList.toggle('hidden', blockedPlayers.size > 0);
+  blockedPlayers.forEach((name, targetId) => {
+    const li = document.createElement('li');
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = name || 'プレイヤー';
+    li.appendChild(nameSpan);
+    const unblockBtn = document.createElement('button');
+    unblockBtn.type = 'button';
+    unblockBtn.textContent = 'ブロック解除';
+    unblockBtn.addEventListener('click', () => {
+      socket.emit('block:remove', { clientId, blockedClientId: targetId }, () => {
+        blockedPlayers.delete(targetId);
+        renderSettingsBlockList();
+        renderPlayerList(playerList, currentPlayers, currentBuzzedId, null, null);
+        showToast('ブロックを解除しました');
+      });
+    });
+    li.appendChild(unblockBtn);
+    settingsBlockList.appendChild(li);
+  });
+}
+
+// ---- アカウント削除 ----
+const settingsDeleteAccountBtn = document.getElementById('settings-delete-account-btn');
+const deleteAccountConfirmOverlay = document.getElementById('delete-account-confirm-overlay');
+const deleteAccountCancelBtn = document.getElementById('delete-account-cancel-btn');
+const deleteAccountOkBtn = document.getElementById('delete-account-ok-btn');
+
+settingsDeleteAccountBtn.addEventListener('click', () => {
+  deleteAccountConfirmOverlay.classList.remove('hidden');
+});
+deleteAccountCancelBtn.addEventListener('click', () => {
+  deleteAccountConfirmOverlay.classList.add('hidden');
+});
+deleteAccountOkBtn.addEventListener('click', () => {
+  socket.emit('account:delete', { clientId }, () => {
+    clearProfile();
+    hasJoined = false;
+    deleteAccountConfirmOverlay.classList.add('hidden');
+    closeSettings();
+    showSettingsProfileState();
+    initProfileUi();
+    gameScreen.classList.add('hidden');
+    joinScreen.classList.remove('hidden');
+    showToast('アカウントを削除しました');
+  });
+});
+
 
 // ---- モード選択に戻る ----
 const backToModeBtn = document.getElementById('back-to-mode-btn');
@@ -592,6 +679,101 @@ function renderGameOverRanking(players) {
 const revealTimerBar = document.getElementById('reveal-timer-bar');
 const buzzBtn = document.getElementById('buzz-btn');
 const playerList = document.getElementById('player-list');
+
+// ---- 参加者タップ時の通報／ブロックメニュー ----
+const playerActionOverlay = document.getElementById('player-action-overlay');
+const playerActionTargetName = document.getElementById('player-action-target-name');
+const playerActionReportBtn = document.getElementById('player-action-report-btn');
+const playerActionBlockBtn = document.getElementById('player-action-block-btn');
+const playerActionCancelBtn = document.getElementById('player-action-cancel-btn');
+const reportReasonOverlay = document.getElementById('report-reason-overlay');
+const reportReasonCancelBtn = document.getElementById('report-reason-cancel-btn');
+const blockConfirmOverlay = document.getElementById('block-confirm-overlay');
+const blockConfirmMessage = document.getElementById('block-confirm-message');
+const blockConfirmCancelBtn = document.getElementById('block-confirm-cancel-btn');
+const blockConfirmOkBtn = document.getElementById('block-confirm-ok-btn');
+
+let actionTargetId = null;
+let actionTargetName = null;
+
+function closePlayerActionOverlays() {
+  playerActionOverlay.classList.add('hidden');
+  reportReasonOverlay.classList.add('hidden');
+  blockConfirmOverlay.classList.add('hidden');
+}
+
+// 参加者バーで自分・CPU以外の名前をタップすると、通報／ブロックのメニューを開く。
+playerList.addEventListener('click', (e) => {
+  const li = e.target.closest('li');
+  if (!li || !li.dataset.clientId) return;
+  const targetId = li.dataset.clientId;
+  if (targetId === clientId || targetId === 'cpu') return;
+  actionTargetId = targetId;
+  const alreadyBlocked = blockedPlayers.has(targetId);
+  actionTargetName = alreadyBlocked ? (blockedPlayers.get(targetId) || 'プレイヤー') : li.querySelector('.player-name').textContent;
+  playerActionTargetName.textContent = actionTargetName;
+  playerActionBlockBtn.textContent = alreadyBlocked ? 'ブロックを解除する' : 'ブロックする';
+  playerActionOverlay.classList.remove('hidden');
+});
+
+playerActionCancelBtn.addEventListener('click', closePlayerActionOverlays);
+playerActionOverlay.addEventListener('click', (e) => {
+  if (e.target === playerActionOverlay) closePlayerActionOverlays();
+});
+
+playerActionReportBtn.addEventListener('click', () => {
+  playerActionOverlay.classList.add('hidden');
+  reportReasonOverlay.classList.remove('hidden');
+});
+reportReasonCancelBtn.addEventListener('click', closePlayerActionOverlays);
+reportReasonOverlay.addEventListener('click', (e) => {
+  if (e.target === reportReasonOverlay) closePlayerActionOverlays();
+});
+document.querySelectorAll('.report-reason-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    socket.emit('report:submit', {
+      clientId,
+      reportedClientId: actionTargetId,
+      reportedName: actionTargetName,
+      reason: btn.dataset.reason,
+    });
+    closePlayerActionOverlays();
+    showToast('通報を送信しました');
+  });
+});
+
+playerActionBlockBtn.addEventListener('click', () => {
+  playerActionOverlay.classList.add('hidden');
+  if (blockedPlayers.has(actionTargetId)) {
+    const targetId = actionTargetId;
+    socket.emit('block:remove', { clientId, blockedClientId: targetId }, () => {
+      blockedPlayers.delete(targetId);
+      renderSettingsBlockList();
+      renderPlayerList(playerList, currentPlayers, currentBuzzedId, null, null);
+      closePlayerActionOverlays();
+      showToast('ブロックを解除しました');
+    });
+    return;
+  }
+  blockConfirmMessage.textContent = `${actionTargetName}さんをブロックしますか？`;
+  blockConfirmOverlay.classList.remove('hidden');
+});
+blockConfirmCancelBtn.addEventListener('click', closePlayerActionOverlays);
+blockConfirmOverlay.addEventListener('click', (e) => {
+  if (e.target === blockConfirmOverlay) closePlayerActionOverlays();
+});
+blockConfirmOkBtn.addEventListener('click', () => {
+  const targetId = actionTargetId;
+  const targetName = actionTargetName;
+  socket.emit('block:add', { clientId, blockedClientId: targetId, blockedName: targetName }, () => {
+    blockedPlayers.set(targetId, targetName);
+    renderSettingsBlockList();
+    renderPlayerList(playerList, currentPlayers, currentBuzzedId, null, null);
+    closePlayerActionOverlays();
+    showToast('ブロックしました');
+  });
+});
+
 const questionNumberEl = document.getElementById('question-number');
 const questionDisplay = document.getElementById('question-display');
 const questionTextEl = document.getElementById('question-text');
@@ -678,19 +860,22 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
     .sort((a, b) => b.score - a.score)
     .forEach((p) => {
       const li = document.createElement('li');
-      li.title = `${p.name}（${p.score}点）`;
+      const isBlocked = blockedPlayers.has(p.id);
+      const displayName = isBlocked ? 'ブロック済みユーザー' : p.name;
+      li.title = `${displayName}（${p.score}点）`;
+      li.dataset.clientId = p.id;
       if (p.locked) li.classList.add('locked');
       if (p.id === buzzedId) li.classList.add('buzzed');
 
       // アイコン用のスペース（今は名前の頭文字を丸の中に表示。将来カスタムアイコンに差し替え予定）。
       const avatar = document.createElement('span');
       avatar.className = 'player-avatar';
-      setAvatarContent(avatar, p.name, p.icon);
+      setAvatarContent(avatar, displayName, isBlocked ? null : p.icon);
       li.appendChild(avatar);
 
       const name = document.createElement('span');
       name.className = 'player-name';
-      name.textContent = p.name;
+      name.textContent = displayName;
       li.appendChild(name);
 
       const score = document.createElement('span');
@@ -771,6 +956,10 @@ function updateQuestionReveal(el, text, phase) {
 let currentPhase = null;
 let currentNoBuzzDeadline = null;
 let latestRevealedAnswer = null;
+// ブロック／ブロック解除した直後、次のstateを待たずに参加者バーの表示だけ即座に
+// 更新できるよう、直近のstateを覚えておく。
+let currentPlayers = [];
+let currentBuzzedId = null;
 let latestRevealedInput = null;
 let lastSfxPhase = null; // 出題・正解・不正解の効果音を、フェーズが切り替わった瞬間だけ鳴らすための直前値
 let sfxPhaseInitialized = false; // 参加/再接続した直後の最初のstateでは、進行中のフェーズを誤って「切り替わった」と判定しないようにする
@@ -902,6 +1091,8 @@ socket.on('state', (state) => {
 
   // 押した人への反応時間バッジは、その結果（○/✕）を表示している間だけ見せる。
   const showReactionFor = (phase === 'buzzed' || phase === 'wrong' || phase === 'correct') ? lastBuzzerId : null;
+  currentPlayers = players;
+  currentBuzzedId = buzzedId;
   renderPlayerList(playerList, players, buzzedId, showReactionFor, lastBuzzerReactionMs);
 
   setupPanel.classList.toggle('hidden', started);

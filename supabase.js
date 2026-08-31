@@ -21,4 +21,62 @@ async function upsertPlayer(clientId, displayName, icon) {
   if (error) console.error('Supabase upsertPlayer failed:', error.message);
 }
 
-module.exports = { upsertPlayer };
+// 不適切な名前・迷惑行為の通報を記録する（審査用ダッシュボードはないため、開発者が
+// Supabaseの管理画面で手動確認する運用）。失敗してもゲーム進行は止めない。
+async function submitReport(reporterClientId, reportedClientId, reportedName, roomId, reason) {
+  if (!supabase) return;
+  const { error } = await supabase.from('reports').insert({
+    reporter_client_id: reporterClientId,
+    reported_client_id: reportedClientId,
+    reported_name: reportedName,
+    room_id: roomId || null,
+    reason: reason || null,
+  });
+  if (error) console.error('Supabase submitReport failed:', error.message);
+}
+
+// ブロックは今のところ「自分の画面上でその相手の名前・アイコンを伏せる」表示上の効果のみ
+// （合言葉制のため見知らぬ人との自動マッチングは存在しない）。ただし将来マッチング機能を
+// 追加した際にすぐ活用できるよう、サーバー側（Supabase）に保存しておく。
+async function addBlock(blockerClientId, blockedClientId, blockedName) {
+  if (!supabase) return;
+  const { error } = await supabase.from('blocks').upsert(
+    { blocker_client_id: blockerClientId, blocked_client_id: blockedClientId, blocked_name: blockedName },
+    { onConflict: 'blocker_client_id,blocked_client_id' }
+  );
+  if (error) console.error('Supabase addBlock failed:', error.message);
+}
+
+async function removeBlock(blockerClientId, blockedClientId) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('blocks')
+    .delete()
+    .eq('blocker_client_id', blockerClientId)
+    .eq('blocked_client_id', blockedClientId);
+  if (error) console.error('Supabase removeBlock failed:', error.message);
+}
+
+async function getBlockList(blockerClientId) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('blocked_client_id, blocked_name')
+    .eq('blocker_client_id', blockerClientId);
+  if (error) {
+    console.error('Supabase getBlockList failed:', error.message);
+    return [];
+  }
+  return (data || []).map((row) => ({ clientId: row.blocked_client_id, name: row.blocked_name }));
+}
+
+// アカウント削除。プロフィール（players）とブロックリストは削除するが、通報記録（reports）は
+// 安全対策の記録として残す（他アプリの一般的な運用にならい、削除しない）。
+async function deleteAccount(clientId) {
+  if (!supabase) return;
+  await supabase.from('blocks').delete().or(`blocker_client_id.eq.${clientId},blocked_client_id.eq.${clientId}`);
+  const { error } = await supabase.from('players').delete().eq('client_id', clientId);
+  if (error) console.error('Supabase deleteAccount failed:', error.message);
+}
+
+module.exports = { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount };
