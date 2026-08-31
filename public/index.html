@@ -46,17 +46,25 @@
           <span class="mode-btn-title">フレンド対戦</span>
         </button>
       </div>
-      <div id="friend-entry" class="friend-entry hidden">
-        <button type="button" id="friend-back-btn" class="friend-back-btn">← 戻る</button>
-        <button type="button" id="friend-create-btn" class="mode-btn mode-btn-friend">
-          <span class="mode-btn-title">部屋を作る</span>
-        </button>
-        <div class="friend-join-row">
-          <input type="text" id="friend-code-input" placeholder="合言葉(4桁)" maxlength="4" autocapitalize="characters" />
-          <button type="button" id="friend-join-btn">入室</button>
-        </div>
-        <p id="friend-join-error" class="friend-join-error hidden">その合言葉の部屋が見つかりません</p>
+    </div>
+  </div>
+</div>
+
+<div id="friend-overlay" class="overlay hidden">
+  <div class="settings-card">
+    <div class="settings-header">
+      <p class="settings-title">フレンド対戦</p>
+      <button type="button" id="friend-close-btn" class="settings-close-btn" aria-label="閉じる">✕</button>
+    </div>
+    <div id="friend-entry" class="friend-entry">
+      <button type="button" id="friend-create-btn" class="mode-btn mode-btn-friend">
+        <span class="mode-btn-title">部屋を作る</span>
+      </button>
+      <div class="friend-join-row">
+        <input type="text" id="friend-code-input" placeholder="合言葉(4桁)" maxlength="4" autocapitalize="characters" />
+        <button type="button" id="friend-join-btn">入室</button>
       </div>
+      <p id="friend-join-error" class="friend-join-error hidden">その合言葉の部屋が見つかりません</p>
     </div>
   </div>
 </div>

@@ -273,35 +273,36 @@ function startJoinFlow(mode, code) {
   socket.once('state', () => {
     joinScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
+    closeFriendOverlay();
   });
   doJoin(name, mode, code);
 }
 
 modeTrainingBtn.addEventListener('click', () => startJoinFlow('training'));
-modeFriendBtn.addEventListener('click', () => showFriendEntry());
+modeFriendBtn.addEventListener('click', () => openFriendOverlay());
 
 // ---- フレンド対戦：部屋を作る／合言葉で入る ----
-const modeSelectEl = document.getElementById('mode-select');
-const friendEntry = document.getElementById('friend-entry');
-const friendBackBtn = document.getElementById('friend-back-btn');
+const friendOverlay = document.getElementById('friend-overlay');
+const friendCloseBtn = document.getElementById('friend-close-btn');
 const friendCreateBtn = document.getElementById('friend-create-btn');
 const friendCodeInput = document.getElementById('friend-code-input');
 const friendJoinBtn = document.getElementById('friend-join-btn');
 const friendJoinError = document.getElementById('friend-join-error');
 
-function showFriendEntry() {
-  modeSelectEl.classList.add('hidden');
-  friendEntry.classList.remove('hidden');
+function openFriendOverlay() {
+  friendOverlay.classList.remove('hidden');
   friendJoinError.classList.add('hidden');
   friendCodeInput.value = '';
 }
 
-function hideFriendEntry() {
-  friendEntry.classList.add('hidden');
-  modeSelectEl.classList.remove('hidden');
+function closeFriendOverlay() {
+  friendOverlay.classList.add('hidden');
 }
 
-friendBackBtn.addEventListener('click', hideFriendEntry);
+friendCloseBtn.addEventListener('click', closeFriendOverlay);
+friendOverlay.addEventListener('click', (e) => {
+  if (e.target === friendOverlay) closeFriendOverlay();
+});
 friendCreateBtn.addEventListener('click', () => startJoinFlow('friend', ''));
 friendJoinBtn.addEventListener('click', () => {
   const code = friendCodeInput.value.trim().toUpperCase();
@@ -410,7 +411,7 @@ function leaveToModeSelect() {
   hasJoined = false;
   selectedMode = null;
   joinedFriendCode = '';
-  hideFriendEntry();
+  closeFriendOverlay();
   gameScreen.classList.add('hidden');
   joinScreen.classList.remove('hidden');
   // 設定でプロフィールを作成/変更した直後の可能性があるので、ゲスト/アカウント作成の
