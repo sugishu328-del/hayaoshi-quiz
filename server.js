@@ -14,23 +14,36 @@ const io = new Server(httpServer);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---- 部屋(Room)管理 ----
-// 今はまだ複数部屋のUIがないため、起動時に1つだけ既定の部屋を作り、接続してきた
-// ソケットは全員この部屋に入れる（今までと同じ「サーバー全体で1ゲーム」の挙動）。
-// 将来、部屋の作成・選択機能を追加する際はここ（server.js）だけを変更すればよい。
-const DEFAULT_ROOM_ID = 'default';
+// トレーニング部屋は`training:${clientId}`、フレンド部屋は`friend:${合言葉}`をキーにして
+// 動的に作る（起動時に部屋を作っておく必要はない）。
 const rooms = new Map();
-rooms.set(DEFAULT_ROOM_ID, new Room(DEFAULT_ROOM_ID, io));
 
-// トレーニング部屋はclientIdを詐称して連打されると無制限に増え続けメモリを圧迫できてしまうため、
-// 同時に存在できる数の上限を設ける（既定部屋は含まない）。あくまで異常事態向けの緊急ブレーキであり、
-// 正常な利用者数を制限する値ではない（Room 1つのメモリ消費はごく小さいため大きめに取ってある）。
-const MAX_TRAINING_ROOMS = 5000;
+// トレーニング部屋・フレンド部屋はどちらも誰でも作れてしまうため、無制限に増え続けて
+// メモリを圧迫できないよう、同時に存在できる数の上限を設ける。あくまで異常事態向けの
+// 緊急ブレーキであり、正常な利用者数を制限する値ではない（Room 1つのメモリ消費はごく小さいため
+// 大きめに取ってある）。
+const MAX_DYNAMIC_ROOMS = 5000;
 
-// 同一IPからの部屋「新規作成」だけを対象にした頻度制限（既存部屋への再参加は対象外）。
-// 学校や家庭など同じIPを複数人で共有している状況でも困らないよう、余裕を持った値にしてある。
+// 同一IPからの部屋「新規作成」だけを対象にした頻度制限（既存部屋への再参加・合言葉での
+// 参加は対象外）。学校や家庭など同じIPを複数人で共有している状況でも困らないよう、
+// 余裕を持った値にしてある。
 const ROOM_CREATION_WINDOW_MS = 60000;
 const ROOM_CREATION_MAX_PER_WINDOW = 20;
 const roomCreationTimestamps = new Map(); // ip -> 直近の作成時刻の配列
+
+// フレンド部屋の合言葉に使う文字。0/O、1/I/Lのような紛らわしい文字は誤入力を防ぐため除外する。
+const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const ROOM_CODE_LENGTH = 4;
+function generateRoomCode() {
+  let code;
+  do {
+    code = '';
+    for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
+      code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    }
+  } while (rooms.has(`friend:${code}`)); // 衝突（既に使われている合言葉）を避ける
+  return code;
+}
 
 function getClientIp(socket) {
   // Renderなどのリバースプロキシ配下では実際の接続元IPがX-Forwarded-Forに入る。
@@ -55,6 +68,32 @@ function canCreateRoom(ip) {
 
 function getRoomForSocket(socket) {
   return rooms.get(socket.data.roomId);
+}
+
+// hostIdが設定されている部屋（フレンド部屋）では、そのclientId以外は設定操作を拒否する。
+// hostIdが未設定（何らかの理由で不在）の場合は、誰も操作できなくならないよう全員に開放する。
+function isHost(room, socket) {
+  return !room.hostId || room.hostId === socket.data.clientId;
+}
+
+// ホストが部屋からいなくなったら、残っている中で一番早く入室した人（Mapの挿入順で先頭）に
+// ホストを引き継ぐ。誰も残っていなければnullに戻す。
+function reassignHostIfNeeded(room, departedClientId) {
+  if (room.hostId !== departedClientId) return;
+  const next = [...room.players.keys()].find((k) => k !== CPU_ID);
+  room.hostId = next || null;
+}
+
+// プレイヤーを部屋から取り除く共通処理（切断猶予切れ・明示的な離脱・モード切替のどれからも呼ぶ）。
+// 呼び出し元は返り値のwasBuzzedをhandlePlayerDeparture()に渡すこと。
+function removePlayer(room, clientId) {
+  const p = room.players.get(clientId);
+  if (p && p.disconnectTimer) clearTimeout(p.disconnectTimer);
+  const wasBuzzed = room.buzzedId === clientId;
+  room.players.delete(clientId);
+  room.socketIdByClientId.delete(clientId);
+  reassignHostIfNeeded(room, clientId);
+  return wasBuzzed;
 }
 
 // プレイヤーが部屋からいなくなった直後（切断の猶予切れ、または明示的な離脱）に
@@ -85,18 +124,16 @@ function handlePlayerDeparture(room, wasBuzzed) {
   }
 }
 
-// トレーニング部屋（持ち主1人＋CPU専用）が空になったら、作りっぱなしにせず消す。
-function destroyTrainingRoomIfEmpty(room) {
-  if (!room.isTraining || room.hasConnectedHuman()) return;
+// 動的に作られた部屋（トレーニング・フレンドどちらも）が空になったら、作りっぱなしにせず消す。
+function destroyRoomIfEmpty(room) {
+  if (room.hasConnectedHuman()) return;
   room.cancelAllTimers();
   rooms.delete(room.id);
 }
 
 io.on('connection', (socket) => {
-  // 接続した瞬間に（joinイベントを送るより前でも）部屋に入れておく。これは今までの
-  // 「サーバーに繋がっている全ソケットに配信する」という挙動を厳密に保つため。
-  socket.data.roomId = DEFAULT_ROOM_ID;
-  socket.join(DEFAULT_ROOM_ID);
+  // 接続直後（＝まだjoinイベントを送っていない間）はどの部屋にも属さない。
+  // 参加画面で名前・モードを選んでjoinを送るまでは、何も配信する必要がないため。
 
   // 1接続からのイベント連打で同じ部屋の全員に負荷をかけられないよう、簡易的なレート制限をかける。
   const eventTimestamps = [];
@@ -121,38 +158,50 @@ io.on('connection', (socket) => {
   // 同一人物を判定するので、再接続（画面ロック・電波切れ等でのsocket再接続）してもスコアを
   // 引き継げる。socket.idは接続のたびに変わるため、識別には使わない。
   onLimited('join', (payload) => {
-    const { name, clientId, mode, icon } = payload || {};
+    const { name, clientId, mode, icon, code } = payload || {};
     const id = (typeof clientId === 'string' && clientId.trim()) ? clientId.trim().slice(0, 100) : null;
     if (!id || id === CPU_ID) return; // clientIdを送ってこない不正なクライアント、CPU用の予約IDは参加させない
     // アイコンは決められた絵文字一覧からのみ受け付ける（自由入力にすると不適切な文字列を
     // 表示させられてしまうため）。ゲスト参加時などはnullのまま（=名前の頭文字を表示）。
     const cleanIcon = (typeof icon === 'string' && ICON_CHOICES.includes(icon)) ? icon : null;
+    const cleanCode = typeof code === 'string' ? code.trim().toUpperCase().slice(0, 8) : '';
 
-    // トレーニングモードは「持ち主(clientId)専用の部屋」に入れる。まだ無ければここで作る。
-    // フレンド対戦モードは今まで通り全員が入る既定の部屋のまま。
-    const targetRoomId = mode === 'training' ? `training:${id}` : DEFAULT_ROOM_ID;
+    // トレーニングモードは「持ち主(clientId)専用の部屋」。フレンド対戦モードは合言葉ごとの部屋で、
+    // 合言葉を指定すれば既存の部屋に参加、指定しなければ新しい部屋（新しい合言葉）を作る。
+    let targetRoomId;
+    if (mode === 'training') {
+      targetRoomId = `training:${id}`;
+    } else if (mode === 'friend' && cleanCode) {
+      targetRoomId = `friend:${cleanCode}`;
+      if (!rooms.has(targetRoomId)) {
+        socket.emit('join:error', { reason: 'not_found' }); // その合言葉の部屋が存在しない
+        return;
+      }
+    } else if (mode === 'friend' && !cleanCode) {
+      if (rooms.size > MAX_DYNAMIC_ROOMS) return; // 同時部屋数の上限に達している（緊急ブレーキ）
+      if (!canCreateRoom(getClientIp(socket))) return; // 同一IPからの新規作成が頻度制限を超えている
+      targetRoomId = `friend:${generateRoomCode()}`;
+    } else {
+      return; // 不正なmode
+    }
+
     if (socket.data.roomId !== targetRoomId) {
       // leaveを経由せずモードを切り替えられた場合に備え、元の部屋に残っている
       // 自分のプレイヤー情報を先に片付けておく（幽霊プレイヤーとして残さない）。
       const oldRoom = getRoomForSocket(socket);
       const oldClientId = socket.data.clientId;
       if (oldRoom && oldClientId && oldRoom.players.has(oldClientId) && oldRoom.socketIdByClientId.get(oldClientId) === socket.id) {
-        const p = oldRoom.players.get(oldClientId);
-        if (p && p.disconnectTimer) clearTimeout(p.disconnectTimer);
-        const wasBuzzed = oldRoom.buzzedId === oldClientId;
-        oldRoom.players.delete(oldClientId);
-        oldRoom.socketIdByClientId.delete(oldClientId);
+        const wasBuzzed = removePlayer(oldRoom, oldClientId);
         handlePlayerDeparture(oldRoom, wasBuzzed);
-        destroyTrainingRoomIfEmpty(oldRoom);
+        destroyRoomIfEmpty(oldRoom);
       }
 
-      socket.leave(socket.data.roomId);
-      if (mode === 'training' && !rooms.has(targetRoomId)) {
-        if (rooms.size > MAX_TRAINING_ROOMS) return; // 同時トレーニング部屋数の上限に達している（緊急ブレーキ）
-        if (!canCreateRoom(getClientIp(socket))) return; // 同一IPからの新規作成が頻度制限を超えている
-        const trainingRoom = new Room(targetRoomId, io);
-        trainingRoom.isTraining = true;
-        rooms.set(targetRoomId, trainingRoom);
+      if (socket.data.roomId) socket.leave(socket.data.roomId);
+      if (!rooms.has(targetRoomId)) {
+        const newRoom = new Room(targetRoomId, io);
+        if (mode === 'training') newRoom.isTraining = true;
+        else newRoom.code = targetRoomId.slice('friend:'.length);
+        rooms.set(targetRoomId, newRoom);
       }
       socket.data.roomId = targetRoomId;
       socket.join(targetRoomId);
@@ -176,6 +225,7 @@ io.on('connection', (socket) => {
       }
     } else {
       room.players.set(id, { name: cleanName, icon: cleanIcon, score: 0, connected: true, disconnectTimer: null, wrongCount: 0 });
+      if (!room.hostId) room.hostId = id; // 部屋に最初に入った人（作成者）がホストになる
     }
     room.broadcastState();
     upsertPlayer(id, cleanName, cleanIcon).catch(() => {});
@@ -189,25 +239,20 @@ io.on('connection', (socket) => {
       const clientId = socket.data.clientId;
       socket.leave(room.id);
       if (clientId && room.players.has(clientId)) {
-        const p = room.players.get(clientId);
-        if (p && p.disconnectTimer) clearTimeout(p.disconnectTimer);
-        const wasBuzzed = room.buzzedId === clientId;
-        room.players.delete(clientId);
-        room.socketIdByClientId.delete(clientId);
+        const wasBuzzed = removePlayer(room, clientId);
         handlePlayerDeparture(room, wasBuzzed);
       }
-      destroyTrainingRoomIfEmpty(room);
+      destroyRoomIfEmpty(room);
     }
     socket.data.clientId = null;
-    socket.data.roomId = DEFAULT_ROOM_ID;
-    socket.join(DEFAULT_ROOM_ID);
+    socket.data.roomId = null;
   });
 
   onLimited('game:setDifficulty', (payload) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { difficulty: d } = payload || {};
-    if (!room.players.has(socket.data.clientId) || room.started) return;
+    if (!room.players.has(socket.data.clientId) || room.started || !isHost(room, socket)) return;
     if (!DIFFICULTIES.includes(d)) return;
     room.difficulty = d;
     room.broadcastState();
@@ -217,7 +262,7 @@ io.on('connection', (socket) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { enabled } = payload || {};
-    if (!room.players.has(socket.data.clientId) || room.started) return;
+    if (!room.players.has(socket.data.clientId) || room.started || !isHost(room, socket)) return;
     if (enabled) {
       if (!room.players.has(CPU_ID)) room.players.set(CPU_ID, { name: 'CPU', score: 0, connected: true, wrongCount: 0 });
     } else {
@@ -230,7 +275,7 @@ io.on('connection', (socket) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { winScore } = payload || {};
-    if (!room.players.has(socket.data.clientId) || room.started) return;
+    if (!room.players.has(socket.data.clientId) || room.started || !isHost(room, socket)) return;
     const n = Number(winScore);
     if (!Number.isInteger(n) || n < 0 || n > 99) return;
     room.winScore = n;
@@ -241,7 +286,7 @@ io.on('connection', (socket) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { questionLimit } = payload || {};
-    if (!room.players.has(socket.data.clientId) || room.started) return;
+    if (!room.players.has(socket.data.clientId) || room.started || !isHost(room, socket)) return;
     const n = Number(questionLimit);
     if (!Number.isInteger(n) || n < 0 || n > 99) return;
     room.questionLimit = n;
@@ -252,7 +297,7 @@ io.on('connection', (socket) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { wrongPenalty } = payload || {};
-    if (!room.players.has(socket.data.clientId) || room.started) return;
+    if (!room.players.has(socket.data.clientId) || room.started || !isHost(room, socket)) return;
     const n = Number(wrongPenalty);
     if (!Number.isInteger(n) || n < 0 || n > 99) return;
     room.wrongPenalty = n;
@@ -263,7 +308,7 @@ io.on('connection', (socket) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { wrongLimit } = payload || {};
-    if (!room.players.has(socket.data.clientId) || room.started) return;
+    if (!room.players.has(socket.data.clientId) || room.started || !isHost(room, socket)) return;
     const n = Number(wrongLimit);
     if (!Number.isInteger(n) || n < 0 || n > 99) return;
     room.wrongLimit = n;
@@ -273,7 +318,7 @@ io.on('connection', (socket) => {
   onLimited('game:start', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
-    if (!room.players.has(socket.data.clientId) || room.started) return;
+    if (!room.players.has(socket.data.clientId) || room.started || !isHost(room, socket)) return;
     if (questionBanks[room.difficulty].length === 0) return; // 問題が1問もない難易度では開始できない
     room.started = true;
     room.lockedOut.clear();
@@ -285,7 +330,7 @@ io.on('connection', (socket) => {
   onLimited('game:end', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
-    if (!room.players.has(socket.data.clientId) || !room.started) return;
+    if (!room.players.has(socket.data.clientId) || !room.started || !isHost(room, socket)) return;
     room.cancelAllTimers();
     room.started = false;
     room.phase = 'open';
@@ -362,8 +407,9 @@ io.on('connection', (socket) => {
       p.connected = false;
       p.disconnectTimer = setTimeout(() => {
         room.players.delete(clientId);
+        reassignHostIfNeeded(room, clientId);
         room.broadcastState();
-        destroyTrainingRoomIfEmpty(room);
+        destroyRoomIfEmpty(room);
       }, DISCONNECT_GRACE_MS);
     }
 

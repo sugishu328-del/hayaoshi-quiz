@@ -17,14 +17,15 @@ const {
   CORRECT_ANSWER_DELAY_MS,
 } = require('./gameData');
 
-// 1つの対戦部屋分の状態とロジックをまとめたクラス。
-// 今はserver.js側で1部屋だけ（DEFAULT_ROOM_ID）を起動時に作って使っているが、
-// 将来複数部屋に対応する際はこのクラスはそのまま複数インスタンス化できる。
+// 1つの対戦部屋分の状態とロジックをまとめたクラス。server.js側でトレーニング部屋
+// （`training:${clientId}`）・フレンド部屋（`friend:${合言葉}`）ごとにインスタンス化される。
 class Room {
   constructor(id, io) {
     this.id = id; // Socket.ioの部屋名としても使う
     this.io = io;
     this.isTraining = false; // trueならトレーニングモード専用の部屋（CPU固定参加・持ち主が抜けたら自動で破棄される）
+    this.code = null; // フレンド部屋の合言葉（4桁）。トレーニング部屋ではnullのまま
+    this.hostId = null; // 部屋の設定・開始/終了を操作できるclientId。最初に入った人が持つ
 
     // ---- ゲーム状態（出題者なし・全員参加者） ----
     // playersはブラウザごとに割り振られる永続的なclientId（localStorageに保存）をキーにする。
@@ -161,6 +162,8 @@ class Room {
       question: this.question,
       questionNumber: this.questionNumber,
       isTraining: this.isTraining,
+      roomCode: this.code,
+      hostId: this.hostId,
       revealedAnswer: this.revealedAnswer,
       revealedInput: this.revealedInput,
       noBuzzDeadline: this.noBuzzDeadline,

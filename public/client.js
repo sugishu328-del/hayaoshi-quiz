@@ -224,26 +224,36 @@ profileDisplayCard.addEventListener('click', () => {
   openProfileEdit();
 });
 
-function doJoin(name, mode) {
+let joinedFriendCode = ''; // 参加中のフレンド部屋の合言葉（再接続時の再参加に使う）
+
+function doJoin(name, mode, code) {
   savedName = name;
   selectedMode = mode;
   hasJoined = true;
   // 参加ボタンを押すまでの間に（他の人のプレイで）フェーズが進んでいても、
   // 参加した直後に届く最初のstateを「切り替わった」と誤判定して音を鳴らさないようにする。
   sfxPhaseInitialized = false;
-  socket.emit('join', { name, clientId, mode, icon: joinIcon });
+  socket.emit('join', { name, clientId, mode, icon: joinIcon, code });
 }
 
 // 画面ロック・電波切れ等で切断された後、socket.ioが自動で再接続したときに
 // 自動で再参加させる（clientId・modeが同じなのでサーバー側で同じ部屋・スコアに戻れる）。
+// フレンド部屋の場合は合言葉も一緒に送り直し、同じ部屋に戻れるようにする。
 socket.on('connect', () => {
   if (hasJoined) {
     sfxPhaseInitialized = false;
-    socket.emit('join', { name: savedName, clientId, mode: selectedMode, icon: joinIcon });
+    socket.emit('join', { name: savedName, clientId, mode: selectedMode, icon: joinIcon, code: joinedFriendCode });
   }
 });
 
-function startJoinFlow(mode) {
+// 「その合言葉の部屋が見つかりません」等、参加に失敗した時にサーバーから届く。
+socket.on('join:error', ({ reason }) => {
+  if (reason === 'not_found') {
+    friendJoinError.classList.remove('hidden');
+  }
+});
+
+function startJoinFlow(mode, code) {
   const profile = getProfile();
   const name = profile ? profile.name : nameInput.value.trim();
   if (!name) {
@@ -264,11 +274,47 @@ function startJoinFlow(mode) {
     joinScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
   });
-  doJoin(name, mode);
+  doJoin(name, mode, code);
 }
 
 modeTrainingBtn.addEventListener('click', () => startJoinFlow('training'));
-modeFriendBtn.addEventListener('click', () => startJoinFlow('friend'));
+modeFriendBtn.addEventListener('click', () => showFriendEntry());
+
+// ---- フレンド対戦：部屋を作る／合言葉で入る ----
+const modeSelectEl = document.getElementById('mode-select');
+const friendEntry = document.getElementById('friend-entry');
+const friendBackBtn = document.getElementById('friend-back-btn');
+const friendCreateBtn = document.getElementById('friend-create-btn');
+const friendCodeInput = document.getElementById('friend-code-input');
+const friendJoinBtn = document.getElementById('friend-join-btn');
+const friendJoinError = document.getElementById('friend-join-error');
+
+function showFriendEntry() {
+  modeSelectEl.classList.add('hidden');
+  friendEntry.classList.remove('hidden');
+  friendJoinError.classList.add('hidden');
+  friendCodeInput.value = '';
+}
+
+function hideFriendEntry() {
+  friendEntry.classList.add('hidden');
+  modeSelectEl.classList.remove('hidden');
+}
+
+friendBackBtn.addEventListener('click', hideFriendEntry);
+friendCreateBtn.addEventListener('click', () => startJoinFlow('friend', ''));
+friendJoinBtn.addEventListener('click', () => {
+  const code = friendCodeInput.value.trim().toUpperCase();
+  if (!code) {
+    friendCodeInput.focus();
+    return;
+  }
+  startJoinFlow('friend', code);
+});
+// 入力するたびに、前回の「見つかりません」エラーは一旦引っ込める。
+friendCodeInput.addEventListener('input', () => {
+  friendJoinError.classList.add('hidden');
+});
 
 // ---- 設定ポップアップ（参加画面からのみ開く。プロフィール編集・効果音ON/OFF） ----
 const settingsBtn = document.getElementById('settings-btn');
@@ -363,6 +409,8 @@ function leaveToModeSelect() {
   socket.emit('leave');
   hasJoined = false;
   selectedMode = null;
+  joinedFriendCode = '';
+  hideFriendEntry();
   gameScreen.classList.add('hidden');
   joinScreen.classList.remove('hidden');
   // 設定でプロフィールを作成/変更した直後の可能性があるので、ゲスト/アカウント作成の
@@ -410,6 +458,10 @@ function syncStepperUnit(input, unitEl) {
 const startGameBtn = document.getElementById('start-game-btn');
 const endGameBtn = document.getElementById('end-game-btn');
 const questionNumberBadge = document.getElementById('question-number-badge');
+const roomCodeDisplay = document.getElementById('room-code-display');
+const roomCodeText = document.getElementById('room-code-text');
+const hostOnlyNote = document.getElementById('host-only-note');
+const stepButtons = document.querySelectorAll('.step-btn');
 
 difficultyButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -437,7 +489,7 @@ wrongLimitInput.addEventListener('change', () => {
 
 // 先取点数・出題数上限の±ボタン。対象のinputの値を直接書き換えてchangeイベントを
 // 発火させることで、上のリスナー（サーバーへの送信）をそのまま再利用する。
-document.querySelectorAll('.step-btn').forEach((btn) => {
+stepButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
     const target = document.getElementById(btn.dataset.stepTarget);
     const delta = Number(btn.dataset.stepDelta);
@@ -754,6 +806,8 @@ socket.on('state', (state) => {
     question,
     questionNumber,
     isTraining,
+    roomCode,
+    hostId,
     answerProgress,
     letterChoices,
     revealedAnswer,
@@ -829,6 +883,20 @@ socket.on('state', (state) => {
   syncStepperUnit(questionLimitInput, questionLimitUnit);
   syncStepperUnit(wrongPenaltyInput, wrongPenaltyUnit);
   syncStepperUnit(wrongLimitInput, wrongLimitUnit);
+
+  // フレンド部屋の合言葉表示・ホスト以外の操作ロック。
+  joinedFriendCode = roomCode || '';
+  roomCodeDisplay.classList.toggle('hidden', !roomCode);
+  roomCodeText.textContent = roomCode || '';
+  const amHost = !hostId || hostId === clientId;
+  hostOnlyNote.classList.toggle('hidden', amHost);
+  [
+    ...difficultyButtons,
+    cpuToggle,
+    winScoreInput, questionLimitInput, wrongPenaltyInput, wrongLimitInput,
+    ...stepButtons,
+    startGameBtn, endGameBtn,
+  ].forEach((el) => { el.disabled = !amHost; });
 
   gameOverOverlay.classList.toggle('hidden', phase !== 'gameOver');
   if (phase === 'gameOver') {

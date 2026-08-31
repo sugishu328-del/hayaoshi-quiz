@@ -428,6 +428,69 @@ h1 {
   opacity: 0.9;
 }
 
+/* ---- フレンド対戦：部屋を作る／合言葉で入る ---- */
+.friend-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.friend-back-btn {
+  align-self: flex-start;
+  background: none;
+  color: var(--color-text-muted);
+  padding: 4px 0;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.friend-join-row {
+  display: flex;
+  gap: 8px;
+}
+
+.friend-join-row input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-align: center;
+}
+
+.friend-join-row button {
+  flex: 0 0 auto;
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.friend-join-error {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--color-quiz-accent-dark);
+}
+
+/* ---- フレンド部屋の合言葉表示・非ホスト向けの注意書き（ゲーム画面の設定パネル） ---- */
+.room-code-display {
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  color: var(--color-quiz-accent-dark);
+}
+
+.host-only-note {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--color-text-muted);
+  background: var(--color-surface-alt);
+  border-radius: 10px;
+  padding: 8px;
+}
+
 .card {
   width: 100%;
   background: var(--color-surface);
@@ -491,6 +554,11 @@ button {
 
 button:disabled {
   opacity: 0.35;
+  cursor: not-allowed;
+}
+
+input:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
