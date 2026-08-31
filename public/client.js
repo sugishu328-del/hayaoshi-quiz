@@ -284,15 +284,32 @@ modeFriendBtn.addEventListener('click', () => openFriendOverlay());
 // ---- フレンド対戦：部屋を作る／合言葉で入る ----
 const friendOverlay = document.getElementById('friend-overlay');
 const friendCloseBtn = document.getElementById('friend-close-btn');
+const friendChoiceStep = document.getElementById('friend-choice-step');
+const friendJoinStep = document.getElementById('friend-join-step');
 const friendCreateBtn = document.getElementById('friend-create-btn');
+const friendShowJoinBtn = document.getElementById('friend-show-join-btn');
+const friendJoinBackBtn = document.getElementById('friend-join-back-btn');
 const friendCodeInput = document.getElementById('friend-code-input');
 const friendJoinBtn = document.getElementById('friend-join-btn');
 const friendJoinError = document.getElementById('friend-join-error');
 
-function openFriendOverlay() {
-  friendOverlay.classList.remove('hidden');
+function showFriendChoiceStep() {
+  friendChoiceStep.classList.remove('hidden');
+  friendJoinStep.classList.add('hidden');
   friendJoinError.classList.add('hidden');
   friendCodeInput.value = '';
+}
+
+function showFriendJoinStep() {
+  friendChoiceStep.classList.add('hidden');
+  friendJoinStep.classList.remove('hidden');
+  friendJoinError.classList.add('hidden');
+  friendCodeInput.focus();
+}
+
+function openFriendOverlay() {
+  friendOverlay.classList.remove('hidden');
+  showFriendChoiceStep();
 }
 
 function closeFriendOverlay() {
@@ -304,6 +321,8 @@ friendOverlay.addEventListener('click', (e) => {
   if (e.target === friendOverlay) closeFriendOverlay();
 });
 friendCreateBtn.addEventListener('click', () => startJoinFlow('friend', ''));
+friendShowJoinBtn.addEventListener('click', showFriendJoinStep);
+friendJoinBackBtn.addEventListener('click', showFriendChoiceStep);
 friendJoinBtn.addEventListener('click', () => {
   const code = friendCodeInput.value.trim().toUpperCase();
   if (!code) {

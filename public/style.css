@@ -435,6 +435,31 @@ h1 {
   gap: 10px;
 }
 
+.friend-choice-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.friend-choice-step .mode-btn-title {
+  font-size: 1.3rem;
+}
+
+.friend-join-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.friend-back-btn {
+  align-self: flex-start;
+  background: none;
+  color: var(--color-text-muted);
+  padding: 4px 0;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
 .friend-join-row {
   display: flex;
   gap: 8px;
