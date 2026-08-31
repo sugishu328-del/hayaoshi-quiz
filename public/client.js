@@ -448,11 +448,11 @@ const questionLimitUnit = document.getElementById('question-limit-unit');
 const wrongPenaltyUnit = document.getElementById('wrong-penalty-unit');
 const wrongLimitUnit = document.getElementById('wrong-limit-unit');
 
-// 「制限なし」等のプレースホルダー表示中は単位を隠し、数値が入っている時だけ見せる。
+// 「制限なし」等のプレースホルダー表示中は単位を隠し、数値が入っている時だけ見せる(誤答ペナルティ/誤答上限は常時表示)。
 function syncStepperUnit(input, unitEl) {
   unitEl.classList.toggle('hidden', input.value === '');
 }
-[[winScoreInput, winScoreUnit], [questionLimitInput, questionLimitUnit], [wrongPenaltyInput, wrongPenaltyUnit], [wrongLimitInput, wrongLimitUnit]].forEach(([input, unit]) => {
+[[winScoreInput, winScoreUnit], [questionLimitInput, questionLimitUnit]].forEach(([input, unit]) => {
   input.addEventListener('input', () => syncStepperUnit(input, unit));
 });
 const startGameBtn = document.getElementById('start-game-btn');
@@ -881,8 +881,6 @@ socket.on('state', (state) => {
   if (document.activeElement !== wrongLimitInput) wrongLimitInput.value = wrongLimit > 0 ? wrongLimit : '';
   syncStepperUnit(winScoreInput, winScoreUnit);
   syncStepperUnit(questionLimitInput, questionLimitUnit);
-  syncStepperUnit(wrongPenaltyInput, wrongPenaltyUnit);
-  syncStepperUnit(wrongLimitInput, wrongLimitUnit);
 
   // フレンド部屋の合言葉表示・ホスト以外の操作ロック。
   joinedFriendCode = roomCode || '';
