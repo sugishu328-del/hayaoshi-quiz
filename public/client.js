@@ -1113,7 +1113,7 @@ socket.on('state', (state) => {
   ruleCheckDifficultyEl.textContent = DIFFICULTY_LABELS[difficulty] || difficulty;
   ruleCheckWinscoreEl.textContent = winScore > 0 ? `${winScore}点` : '制限なし';
   ruleCheckQlimitEl.textContent = questionLimit > 0 ? `${questionLimit}問` : '制限なし';
-  ruleCheckPenaltyEl.textContent = wrongPenalty > 0 ? `${wrongPenalty}点減点` : 'なし';
+  ruleCheckPenaltyEl.textContent = wrongPenalty > 0 ? `${wrongPenalty}点` : 'なし';
   ruleCheckWronglimitEl.textContent = wrongLimit > 0 ? `${wrongLimit}回` : '無制限';
   ruleCheckRoomcodeRow.classList.toggle('hidden', !roomCode);
   ruleCheckRoomcodeEl.textContent = roomCode || '';

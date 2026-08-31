@@ -87,9 +87,9 @@ body {
   width: 100%;
   display: flex;
   align-items: center;
-  background: var(--color-primary-light);
+  background: var(--color-quiz-accent-light);
   padding: max(14px, env(safe-area-inset-top)) 16px 14px;
-  box-shadow: 0 2px 8px rgba(59, 47, 160, 0.08);
+  box-shadow: 0 2px 8px rgba(163, 52, 26, 0.1);
 }
 
 .join-content {
