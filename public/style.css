@@ -613,9 +613,12 @@ input:disabled {
   justify-self: start;
 }
 
-#end-game-btn {
+.top-bar-right {
   grid-column: 3;
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .player-bar {
@@ -945,6 +948,13 @@ input:disabled {
   background: var(--color-neutral-btn);
 }
 
+.rule-check-btn {
+  padding: 5px 10px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  background: var(--color-neutral-btn);
+}
+
 .back-btn {
   padding: 5px 10px;
   font-size: 0.7rem;
@@ -1250,6 +1260,43 @@ input:disabled {
 .game-over-ranking li.winner {
   border-color: var(--color-gold);
   background: var(--color-gold-light);
+}
+
+/* ---- 解答中にルールを見返すための確認ポップアップ（読み取り専用） ---- */
+.rule-check-card {
+  margin-top: 0;
+}
+
+.rule-check-list {
+  width: 100%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rule-check-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+  box-shadow: var(--shadow-inset);
+}
+
+.rule-check-label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: bold;
+}
+
+.rule-check-value {
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--color-text);
 }
 
 .game-over-name {

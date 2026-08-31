@@ -483,6 +483,25 @@ const roomCodeText = document.getElementById('room-code-text');
 const hostOnlyNote = document.getElementById('host-only-note');
 const stepButtons = document.querySelectorAll('.step-btn');
 
+// ---- 解答中にルールを見返すための確認ポップアップ（読み取り専用） ----
+const DIFFICULTY_LABELS = { C: 'C（かんたん）', B: 'B（ふつう）', A: 'A（むずかしい）' };
+const ruleCheckBtn = document.getElementById('rule-check-btn');
+const ruleCheckOverlay = document.getElementById('rule-check-overlay');
+const ruleCheckCloseBtn = document.getElementById('rule-check-close-btn');
+const ruleCheckDifficultyEl = document.getElementById('rule-check-difficulty');
+const ruleCheckWinscoreEl = document.getElementById('rule-check-winscore');
+const ruleCheckQlimitEl = document.getElementById('rule-check-qlimit');
+const ruleCheckPenaltyEl = document.getElementById('rule-check-penalty');
+const ruleCheckWronglimitEl = document.getElementById('rule-check-wronglimit');
+const ruleCheckRoomcodeRow = document.getElementById('rule-check-roomcode-row');
+const ruleCheckRoomcodeEl = document.getElementById('rule-check-roomcode');
+
+ruleCheckBtn.addEventListener('click', () => ruleCheckOverlay.classList.remove('hidden'));
+ruleCheckCloseBtn.addEventListener('click', () => ruleCheckOverlay.classList.add('hidden'));
+ruleCheckOverlay.addEventListener('click', (e) => {
+  if (e.target === ruleCheckOverlay) ruleCheckOverlay.classList.add('hidden');
+});
+
 difficultyButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
     socket.emit('game:setDifficulty', { difficulty: btn.dataset.difficulty });
@@ -889,6 +908,14 @@ socket.on('state', (state) => {
   playPanel.classList.toggle('hidden', !started);
   questionNumberBadge.classList.toggle('hidden', !started);
   endGameBtn.classList.toggle('hidden', !started);
+  ruleCheckBtn.classList.toggle('hidden', !started);
+  ruleCheckDifficultyEl.textContent = DIFFICULTY_LABELS[difficulty] || difficulty;
+  ruleCheckWinscoreEl.textContent = winScore > 0 ? `${winScore}点` : '制限なし';
+  ruleCheckQlimitEl.textContent = questionLimit > 0 ? `${questionLimit}問` : '制限なし';
+  ruleCheckPenaltyEl.textContent = wrongPenalty > 0 ? `${wrongPenalty}点減点` : 'なし';
+  ruleCheckWronglimitEl.textContent = wrongLimit > 0 ? `${wrongLimit}回` : '無制限';
+  ruleCheckRoomcodeRow.classList.toggle('hidden', !roomCode);
+  ruleCheckRoomcodeEl.textContent = roomCode || '';
   difficultyButtons.forEach((b) => b.classList.toggle('active', b.dataset.difficulty === difficulty));
   // CPU参加の選択肢はトレーニングモードでのみ表示する（フレンド対戦モードでは非表示）。
   // トレーニングモードでも今まで通り自由にON/OFFを選べる。

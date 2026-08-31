@@ -122,7 +122,10 @@
   <div id="top-bar" class="top-bar">
     <button id="back-to-mode-btn" class="back-btn">← モード選択</button>
     <span id="question-number-badge" class="question-number-badge hidden"></span>
-    <button id="end-game-btn" class="hidden">終了</button>
+    <div id="top-bar-right" class="top-bar-right">
+      <button id="rule-check-btn" class="rule-check-btn hidden">📋 ルール</button>
+      <button id="end-game-btn" class="hidden">終了</button>
+    </div>
   </div>
 
   <header id="player-bar" class="player-bar">
@@ -279,6 +282,23 @@
         <button id="leave-confirm-cancel" class="end-confirm-cancel">キャンセル</button>
         <button id="leave-confirm-ok" class="end-confirm-ok">戻る</button>
       </div>
+    </div>
+  </div>
+
+  <div id="rule-check-overlay" class="buzz-overlay hidden">
+    <div class="buzz-card rule-check-card">
+      <div class="settings-header">
+        <p class="settings-title">ルール確認</p>
+        <button type="button" id="rule-check-close-btn" class="settings-close-btn" aria-label="閉じる">✕</button>
+      </div>
+      <ul class="rule-check-list">
+        <li><span class="rule-check-label">難易度</span><span id="rule-check-difficulty" class="rule-check-value"></span></li>
+        <li><span class="rule-check-label">勝利点数</span><span id="rule-check-winscore" class="rule-check-value"></span></li>
+        <li><span class="rule-check-label">出題数</span><span id="rule-check-qlimit" class="rule-check-value"></span></li>
+        <li><span class="rule-check-label">誤答ペナルティ</span><span id="rule-check-penalty" class="rule-check-value"></span></li>
+        <li><span class="rule-check-label">誤答上限</span><span id="rule-check-wronglimit" class="rule-check-value"></span></li>
+        <li id="rule-check-roomcode-row" class="hidden"><span class="rule-check-label">合言葉</span><span id="rule-check-roomcode" class="rule-check-value"></span></li>
+      </ul>
     </div>
   </div>
 </div>
