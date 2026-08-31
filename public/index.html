@@ -13,10 +13,11 @@
 
 <div id="join-screen" class="screen">
   <div class="join-top-bar">
-    <button type="button" id="profile-display-card" class="profile-display-card hidden">
+    <button type="button" id="profile-display-card" class="profile-display-card">
       <span id="profile-display-avatar" class="player-avatar"></span>
       <span id="profile-display-name" class="profile-display-name"></span>
     </button>
+    <button type="button" id="create-account-btn" class="create-account-btn hidden">アカウント作成</button>
     <button type="button" id="settings-btn" class="settings-btn">
       <span class="settings-btn-label">設定</span>
     </button>
@@ -25,16 +26,6 @@
     <div class="join-hero">
       <h1 class="app-title"><span>早押しクイズ</span><span>トレーニング</span></h1>
       <p class="app-tagline">～早押しが強くなりたい全ての人へ～</p>
-    </div>
-    <div id="profile-mode-card" class="card hidden">
-      <div class="profile-mode-tabs">
-        <button type="button" id="profile-mode-guest-btn" class="profile-mode-tab active">ゲスト</button>
-        <button type="button" id="profile-mode-account-btn" class="profile-mode-tab">アカウント作成</button>
-      </div>
-    </div>
-    <div id="name-card" class="card">
-      <input id="name-input" type="text" placeholder="なまえを入力" maxlength="20" />
-      <div id="icon-picker" class="icon-picker hidden"></div>
     </div>
     <div class="card">
       <div id="mode-select" class="mode-select">

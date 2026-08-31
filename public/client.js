@@ -154,25 +154,21 @@ function playWrongSound() { playSfx('wrong'); }
 
 const joinScreen = document.getElementById('join-screen');
 const gameScreen = document.getElementById('game-screen');
-const nameInput = document.getElementById('name-input');
 const modeTrainingBtn = document.getElementById('mode-training-btn');
 const modeFriendBtn = document.getElementById('mode-friend-btn');
-const profileModeCard = document.getElementById('profile-mode-card');
-const profileModeGuestBtn = document.getElementById('profile-mode-guest-btn');
-const profileModeAccountBtn = document.getElementById('profile-mode-account-btn');
-const iconPicker = document.getElementById('icon-picker');
-const nameCard = document.getElementById('name-card');
 const profileDisplayCard = document.getElementById('profile-display-card');
 const profileDisplayAvatar = document.getElementById('profile-display-avatar');
 const profileDisplayName = document.getElementById('profile-display-name');
+const createAccountBtn = document.getElementById('create-account-btn');
+
+const GUEST_NAME = 'ゲスト';
 
 let hasJoined = false;
 let savedName = '';
 let selectedMode = null; // 'training' | 'friend'
 let joinIcon = null; // 参加時に送るアイコン（絵文字）。ゲスト等でnullなら名前の頭文字を表示する
-let profileModeIsAccount = false; // 初回のゲスト/アカウント作成タブでどちらを選んでいるか
 
-// アイコン選択グリッドを描画する。参加画面・設定ポップアップの2箇所で共通利用する。
+// アイコン選択グリッドを描画する。設定ポップアップのプロフィール編集で使う。
 function renderIconPicker(container, selected, onSelect) {
   container.innerHTML = '';
   ICON_CHOICES.forEach((emoji) => {
@@ -185,50 +181,31 @@ function renderIconPicker(container, selected, onSelect) {
   });
 }
 
-function selectJoinIcon(emoji) {
-  joinIcon = emoji;
-  renderIconPicker(iconPicker, joinIcon, selectJoinIcon);
-}
-
-function setProfileMode(mode) {
-  profileModeIsAccount = mode === 'account';
-  profileModeGuestBtn.classList.toggle('active', mode === 'guest');
-  profileModeAccountBtn.classList.toggle('active', mode === 'account');
-  if (mode === 'guest') {
-    iconPicker.classList.add('hidden');
-    joinIcon = null;
-  } else {
-    iconPicker.classList.remove('hidden');
-    selectJoinIcon(ICON_CHOICES[0]);
-  }
-}
-
-profileModeGuestBtn.addEventListener('click', () => setProfileMode('guest'));
-profileModeAccountBtn.addEventListener('click', () => setProfileMode('account'));
-
-// 保存済みプロフィール（アカウント作成済み）があれば、ゲスト/アカウント作成の選択と
-// 名前入力欄自体を省略し、代わりにアイコン+名前を「表示」するカードに差し替える。
-// 無ければ今まで通り選択・名前入力から始める。
+// 保存済みプロフィール（アカウント作成済み）があればアイコン+名前を表示し、無ければ
+// 「ゲスト」を表示する。参加画面上部の見た目はどちらも同じ構造（アイコン+名前+設定ボタン）。
 function initProfileUi() {
   const profile = getProfile();
   if (profile) {
-    profileModeCard.classList.add('hidden');
-    nameCard.classList.add('hidden');
-    profileDisplayCard.classList.remove('hidden');
     profileDisplayAvatar.textContent = profile.icon;
     profileDisplayName.textContent = profile.name;
     joinIcon = profile.icon;
+    createAccountBtn.classList.add('hidden');
   } else {
-    profileModeCard.classList.remove('hidden');
-    nameCard.classList.remove('hidden');
-    profileDisplayCard.classList.add('hidden');
-    setProfileMode('guest');
+    setAvatarContent(profileDisplayAvatar, GUEST_NAME, null);
+    profileDisplayName.textContent = GUEST_NAME;
+    joinIcon = null;
+    createAccountBtn.classList.remove('hidden');
   }
 }
 initProfileUi();
 
-// プロフィール表示カードをタップすると、設定ポップアップのプロフィール編集を直接開く。
+// プロフィール表示カード（アカウント作成済みなら編集）・アカウント作成ボタン（ゲスト時のみ表示）
+// のどちらも、設定ポップアップのプロフィール編集を直接開く。
 profileDisplayCard.addEventListener('click', () => {
+  openSettings();
+  openProfileEdit();
+});
+createAccountBtn.addEventListener('click', () => {
   openSettings();
   openProfileEdit();
 });
@@ -275,17 +252,8 @@ socket.on('join:error', ({ reason }) => {
 
 function startJoinFlow(mode, code) {
   const profile = getProfile();
-  const name = profile ? profile.name : nameInput.value.trim();
-  if (!name) {
-    nameInput.focus();
-    return;
-  }
+  const name = profile ? profile.name : GUEST_NAME;
   unlockAudio();
-  // 初めて「アカウント作成」を選んだ状態でここまで来たら、この時点で名前・アイコンを保存する
-  // （以後はこの画面が省略され、保存した内容で自動的に参加できるようになる）。
-  if (!profileModeCard.classList.contains('hidden') && profileModeIsAccount) {
-    saveProfile(name, joinIcon);
-  }
   // 直前まで別の部屋にいた場合、参加直後にすぐゲーム画面を表示すると、新しい部屋の状態が
   // 届くまでの一瞬だけ前の部屋の表示（CPU参加ボタンの有無、難易度の選択状態など）が
   // 残って見えてしまう。新しい部屋のstateが届く（＝画面が正しく更新される）まで待ってから

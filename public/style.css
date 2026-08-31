@@ -87,6 +87,7 @@ body {
   width: 100%;
   display: flex;
   align-items: center;
+  gap: 10px;
   background: var(--color-quiz-accent-light);
   padding: max(14px, env(safe-area-inset-top)) 16px 14px;
   box-shadow: 0 2px 8px rgba(163, 52, 26, 0.1);
@@ -175,28 +176,15 @@ h1 {
   box-shadow: var(--shadow-raised-sm);
 }
 
-/* ---- ゲスト／アカウント作成の切り替えタブ ---- */
-.profile-mode-tabs {
-  width: 100%;
-  display: flex;
-  gap: 8px;
-}
-
-.profile-mode-tab {
-  flex: 1;
-  padding: 10px;
-  border-radius: 12px;
-  border: 2px solid var(--color-border-strong);
-  background: var(--color-surface);
-  color: var(--color-text-faint);
-  font-weight: bold;
-  font-size: 0.92rem;
-}
-
-.profile-mode-tab.active {
+/* ---- ゲスト状態の参加画面上部に出す「アカウント作成」ボタン ---- */
+.create-account-btn {
+  padding: 10px 16px;
+  border-radius: 999px;
   background: var(--color-primary);
-  border-color: var(--color-primary);
   color: #fff;
+  font-size: 0.85rem;
+  font-weight: bold;
+  box-shadow: var(--shadow-raised-sm);
 }
 
 /* ---- アイコン選択（プリセット絵文字） ---- */
