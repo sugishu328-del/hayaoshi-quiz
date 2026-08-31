@@ -295,6 +295,40 @@ h1 {
   font-size: 0.95rem;
 }
 
+/* ---- 設定ポップアップのカテゴリ選択(ホーム)・各カテゴリ画面 ---- */
+.settings-home {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-cat-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  text-align: left;
+  font-weight: bold;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow-raised-sm);
+}
+
+.settings-category {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-back-btn {
+  align-self: flex-start;
+  background: none;
+  color: var(--color-text-muted);
+  padding: 4px 0;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -758,6 +792,14 @@ input:disabled {
 .player-list li.locked .player-name,
 .player-list li.locked .player-score {
   text-decoration: line-through;
+}
+
+/* ゲスト同士など同じ表示名の人がいても自分の位置がすぐ分かるよう、自分のカードだけ
+   縁取りを強調する（.buzzedと両立する場合は、より重要な.buzzedの赤を優先させたいので
+   このルールを先に書いて後発の.buzzedに上書きさせる）。 */
+.player-list li.me {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light), var(--shadow-raised-sm);
 }
 
 .player-list li.buzzed {
@@ -1296,6 +1338,7 @@ input:disabled {
 /* ---- 解答中にルールを見返すための確認ポップアップ（読み取り専用） ---- */
 .rule-check-card {
   margin-top: 0;
+  background: var(--color-surface);
 }
 
 .rule-check-list {
@@ -1328,6 +1371,11 @@ input:disabled {
   font-size: 0.95rem;
   font-weight: 900;
   color: var(--color-text);
+}
+
+.rule-change-btn {
+  width: 100%;
+  background: var(--color-neutral-btn);
 }
 
 .game-over-name {

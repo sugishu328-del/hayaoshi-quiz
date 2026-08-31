@@ -84,6 +84,19 @@ function reassignHostIfNeeded(room, departedClientId) {
   room.hostId = next || null;
 }
 
+// 同じ部屋の中で表示名が誰かとかぶったら「名前2」「名前3」のように連番を振って区別できるようにする
+// （ゲストは全員「ゲスト」になるため、フレンド対戦で複数人ゲストが揃うと見分けがつかなくなる対策）。
+// 自分自身の既存エントリ（再接続・名前変更なし）は衝突相手として数えない。
+function dedupePlayerName(room, clientId, name) {
+  const taken = new Set(
+    [...room.players.entries()].filter(([id]) => id !== clientId).map(([, p]) => p.name)
+  );
+  if (!taken.has(name)) return name;
+  let n = 2;
+  while (taken.has(`${name}${n}`)) n++;
+  return `${name}${n}`;
+}
+
 // プレイヤーを部屋から取り除く共通処理（切断猶予切れ・明示的な離脱・モード切替のどれからも呼ぶ）。
 // 呼び出し元は返り値のwasBuzzedをhandlePlayerDeparture()に渡すこと。
 function removePlayer(room, clientId) {
@@ -213,7 +226,8 @@ io.on('connection', (socket) => {
     socket.data.clientId = id;
     room.socketIdByClientId.set(id, socket.id);
 
-    const cleanName = (name || '').toString().trim().slice(0, 20) || `プレイヤー${id.slice(0, 4)}`;
+    const rawName = (name || '').toString().trim().slice(0, 20) || `プレイヤー${id.slice(0, 4)}`;
+    const cleanName = dedupePlayerName(room, id, rawName);
     const existing = room.players.get(id);
     if (existing) {
       existing.name = cleanName;

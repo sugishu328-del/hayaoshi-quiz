@@ -328,6 +328,11 @@ friendCodeInput.addEventListener('input', () => {
 const settingsBtn = document.getElementById('settings-btn');
 const settingsOverlay = document.getElementById('settings-overlay');
 const settingsCloseBtn = document.getElementById('settings-close-btn');
+const settingsHome = document.getElementById('settings-home');
+const settingsCategories = document.querySelectorAll('.settings-category');
+const settingsCatProfileBtn = document.getElementById('settings-cat-profile-btn');
+const settingsCatSystemBtn = document.getElementById('settings-cat-system-btn');
+const settingsCatAppBtn = document.getElementById('settings-cat-app-btn');
 const settingsProfileView = document.getElementById('settings-profile-view');
 const settingsProfileEmpty = document.getElementById('settings-profile-empty');
 const settingsProfileEdit = document.getElementById('settings-profile-edit');
@@ -365,7 +370,20 @@ function showSettingsProfileState() {
   }
 }
 
+// 設定ポップアップは「プロフィール／システム／アプリ情報」のカテゴリ選択から始まり、
+// 選んだカテゴリだけを表示する（一度に全部並べない）。
+function showSettingsHome() {
+  settingsHome.classList.remove('hidden');
+  settingsCategories.forEach((el) => el.classList.add('hidden'));
+}
+
+function showSettingsCategory(id) {
+  settingsHome.classList.add('hidden');
+  settingsCategories.forEach((el) => el.classList.toggle('hidden', el.id !== id));
+}
+
 function openSettings() {
+  showSettingsHome();
   showSettingsProfileState();
   soundToggleCheckbox.checked = soundEnabled;
   settingsOverlay.classList.remove('hidden');
@@ -376,6 +394,7 @@ function closeSettings() {
 }
 
 function openProfileEdit() {
+  showSettingsCategory('settings-cat-profile');
   const profile = getProfile();
   settingsNameInput.value = profile ? profile.name : '';
   selectSettingsIcon(profile ? profile.icon : ICON_CHOICES[0]);
@@ -388,6 +407,12 @@ settingsBtn.addEventListener('click', openSettings);
 settingsCloseBtn.addEventListener('click', closeSettings);
 settingsOverlay.addEventListener('click', (e) => {
   if (e.target === settingsOverlay) closeSettings();
+});
+settingsCatProfileBtn.addEventListener('click', () => showSettingsCategory('settings-cat-profile'));
+settingsCatSystemBtn.addEventListener('click', () => showSettingsCategory('settings-cat-system'));
+settingsCatAppBtn.addEventListener('click', () => showSettingsCategory('settings-cat-app'));
+document.querySelectorAll('.settings-back-btn').forEach((btn) => {
+  btn.addEventListener('click', showSettingsHome);
 });
 settingsEditProfileBtn.addEventListener('click', openProfileEdit);
 settingsCreateProfileBtn.addEventListener('click', openProfileEdit);
@@ -560,11 +585,29 @@ const ruleCheckPenaltyEl = document.getElementById('rule-check-penalty');
 const ruleCheckWronglimitEl = document.getElementById('rule-check-wronglimit');
 const ruleCheckRoomcodeRow = document.getElementById('rule-check-roomcode-row');
 const ruleCheckRoomcodeEl = document.getElementById('rule-check-roomcode');
+const ruleChangeBtn = document.getElementById('rule-change-btn');
+const ruleChangeConfirmOverlay = document.getElementById('rule-change-confirm-overlay');
+const ruleChangeCancelBtn = document.getElementById('rule-change-cancel-btn');
+const ruleChangeOkBtn = document.getElementById('rule-change-ok-btn');
 
 ruleCheckBtn.addEventListener('click', () => ruleCheckOverlay.classList.remove('hidden'));
 ruleCheckCloseBtn.addEventListener('click', () => ruleCheckOverlay.classList.add('hidden'));
 ruleCheckOverlay.addEventListener('click', (e) => {
   if (e.target === ruleCheckOverlay) ruleCheckOverlay.classList.add('hidden');
+});
+
+// 「ルール変更」＝進行中のゲームを終了して難易度設定画面に戻る（既存のgame:endの再利用）。
+// 誤タップで即リセットされないよう、終了ボタンと同様に確認ポップアップを挟む。
+ruleChangeBtn.addEventListener('click', () => {
+  ruleCheckOverlay.classList.add('hidden');
+  ruleChangeConfirmOverlay.classList.remove('hidden');
+});
+ruleChangeCancelBtn.addEventListener('click', () => {
+  ruleChangeConfirmOverlay.classList.add('hidden');
+});
+ruleChangeOkBtn.addEventListener('click', () => {
+  ruleChangeConfirmOverlay.classList.add('hidden');
+  socket.emit('game:end');
 });
 
 difficultyButtons.forEach((btn) => {
@@ -839,11 +882,13 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
     .forEach((p) => {
       const li = document.createElement('li');
       const isBlocked = blockedPlayers.has(p.id);
+      const isMe = p.id === clientId;
       const displayName = isBlocked ? 'ブロック済みユーザー' : p.name;
       li.title = `${displayName}（${p.score}点）`;
       li.dataset.clientId = p.id;
       if (p.locked) li.classList.add('locked');
       if (p.id === buzzedId) li.classList.add('buzzed');
+      if (isMe) li.classList.add('me');
 
       // アイコン用のスペース（今は名前の頭文字を丸の中に表示。将来カスタムアイコンに差し替え予定）。
       const avatar = document.createElement('span');
@@ -853,7 +898,7 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
 
       const name = document.createElement('span');
       name.className = 'player-name';
-      name.textContent = displayName;
+      name.textContent = isMe ? `${displayName}（あなた）` : displayName;
       li.appendChild(name);
 
       const score = document.createElement('span');
@@ -1109,7 +1154,7 @@ socket.on('state', (state) => {
     cpuToggle,
     winScoreInput, questionLimitInput, wrongPenaltyInput, wrongLimitInput,
     ...stepButtons,
-    startGameBtn, endGameBtn,
+    startGameBtn, endGameBtn, ruleChangeBtn,
   ].forEach((el) => { el.disabled = !amHost; });
 
   gameOverOverlay.classList.toggle('hidden', phase !== 'gameOver');

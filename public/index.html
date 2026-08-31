@@ -74,48 +74,66 @@
       <button type="button" id="settings-close-btn" class="settings-close-btn" aria-label="閉じる">✕</button>
     </div>
 
-    <div class="settings-section">
-      <p class="settings-section-title">プロフィール</p>
+    <div id="settings-home" class="settings-home">
+      <button type="button" id="settings-cat-profile-btn" class="settings-cat-btn">プロフィール</button>
+      <button type="button" id="settings-cat-system-btn" class="settings-cat-btn">システム</button>
+      <button type="button" id="settings-cat-app-btn" class="settings-cat-btn">アプリ情報</button>
+    </div>
 
-      <div id="settings-profile-view" class="settings-profile-view hidden">
-        <span id="settings-profile-avatar" class="player-avatar"></span>
-        <span id="settings-profile-name" class="settings-profile-name"></span>
-        <button type="button" id="settings-edit-profile-btn" class="settings-text-btn">編集</button>
-      </div>
+    <div id="settings-cat-profile" class="settings-category hidden">
+      <button type="button" class="settings-back-btn">← 戻る</button>
 
-      <div id="settings-profile-empty" class="settings-profile-empty hidden">
-        <p class="settings-profile-empty-text">ゲストとして参加しています。名前とアイコンを保存するには、アカウントを作成してください。</p>
-        <button type="button" id="settings-create-profile-btn" class="settings-text-btn">アカウント作成する</button>
-      </div>
+      <div class="settings-section">
+        <p class="settings-section-title">プロフィール</p>
 
-      <div id="settings-profile-edit" class="settings-profile-edit hidden">
-        <input id="settings-name-input" type="text" placeholder="なまえを入力" maxlength="20" />
-        <div id="settings-icon-picker" class="icon-picker"></div>
-        <div class="settings-edit-actions">
-          <button type="button" id="settings-edit-cancel-btn" class="settings-edit-cancel-btn">キャンセル</button>
-          <button type="button" id="settings-edit-save-btn" class="settings-edit-save-btn">保存</button>
+        <div id="settings-profile-view" class="settings-profile-view hidden">
+          <span id="settings-profile-avatar" class="player-avatar"></span>
+          <span id="settings-profile-name" class="settings-profile-name"></span>
+          <button type="button" id="settings-edit-profile-btn" class="settings-text-btn">編集</button>
         </div>
+
+        <div id="settings-profile-empty" class="settings-profile-empty hidden">
+          <p class="settings-profile-empty-text">ゲストとして参加しています。名前とアイコンを保存するには、アカウントを作成してください。</p>
+          <button type="button" id="settings-create-profile-btn" class="settings-text-btn">アカウント作成する</button>
+        </div>
+
+        <div id="settings-profile-edit" class="settings-profile-edit hidden">
+          <input id="settings-name-input" type="text" placeholder="なまえを入力" maxlength="20" />
+          <div id="settings-icon-picker" class="icon-picker"></div>
+          <div class="settings-edit-actions">
+            <button type="button" id="settings-edit-cancel-btn" class="settings-edit-cancel-btn">キャンセル</button>
+            <button type="button" id="settings-edit-save-btn" class="settings-edit-save-btn">保存</button>
+          </div>
+        </div>
+
+        <button type="button" id="settings-delete-account-btn" class="settings-danger-link">アカウントを削除</button>
       </div>
 
-      <button type="button" id="settings-delete-account-btn" class="settings-danger-link">アカウントを削除</button>
+      <div class="settings-section">
+        <p class="settings-section-title">ブロックリスト</p>
+        <ul id="settings-block-list" class="settings-block-list"></ul>
+        <p id="settings-block-list-empty" class="settings-block-list-empty">ブロック中のユーザーはいません</p>
+      </div>
     </div>
 
-    <div class="settings-section">
-      <p class="settings-section-title">効果音</p>
-      <label class="sound-toggle">
-        <span class="sound-toggle-label">サウンドあり</span>
-        <input type="checkbox" id="sound-toggle-checkbox" class="toggle-switch" />
-      </label>
+    <div id="settings-cat-system" class="settings-category hidden">
+      <button type="button" class="settings-back-btn">← 戻る</button>
+
+      <div class="settings-section">
+        <p class="settings-section-title">効果音</p>
+        <label class="sound-toggle">
+          <span class="sound-toggle-label">サウンドあり</span>
+          <input type="checkbox" id="sound-toggle-checkbox" class="toggle-switch" />
+        </label>
+      </div>
     </div>
 
-    <div class="settings-section">
-      <p class="settings-section-title">ブロックリスト</p>
-      <ul id="settings-block-list" class="settings-block-list"></ul>
-      <p id="settings-block-list-empty" class="settings-block-list-empty">ブロック中のユーザーはいません</p>
-    </div>
+    <div id="settings-cat-app" class="settings-category hidden">
+      <button type="button" class="settings-back-btn">← 戻る</button>
 
-    <div class="settings-section">
-      <a href="/privacy.html" target="_blank" rel="noopener" class="settings-text-btn">プライバシーポリシー</a>
+      <div class="settings-section">
+        <a href="/privacy.html" target="_blank" rel="noopener" class="settings-text-btn">プライバシーポリシー</a>
+      </div>
     </div>
   </div>
 </div>
@@ -311,6 +329,17 @@
         <li><span class="rule-check-label">誤答上限</span><span id="rule-check-wronglimit" class="rule-check-value"></span></li>
         <li id="rule-check-roomcode-row" class="hidden"><span class="rule-check-label">合言葉</span><span id="rule-check-roomcode" class="rule-check-value"></span></li>
       </ul>
+      <button type="button" id="rule-change-btn" class="rule-change-btn">ルール変更</button>
+    </div>
+  </div>
+
+  <div id="rule-change-confirm-overlay" class="buzz-overlay hidden">
+    <div class="buzz-card end-confirm-card">
+      <p class="end-confirm-message">ルールを変更しますか？<br />現在の進行状況はリセットされ、難易度設定画面に戻ります。</p>
+      <div class="end-confirm-actions">
+        <button type="button" id="rule-change-cancel-btn" class="end-confirm-cancel">キャンセル</button>
+        <button type="button" id="rule-change-ok-btn" class="end-confirm-ok">変更する</button>
+      </div>
     </div>
   </div>
 
