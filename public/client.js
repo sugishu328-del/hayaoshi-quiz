@@ -39,12 +39,18 @@ const clientId = getClientId();
 const ICON_CHOICES = ['🦊', '🐱', '🐶', '🐻', '🦁', '🐰', '🐼', '🐨'];
 const PROFILE_KEY = 'hayaoshi_profile';
 
+// プリセット絵文字に加えて、アップロード済み画像（Supabase Storageの公開URL）も
+// アイコンとして許可する。サーバー側(server.js)も同じ判定を持っている。
+function isValidIcon(icon) {
+  return ICON_CHOICES.includes(icon) || (typeof icon === 'string' && /^https?:\/\//.test(icon));
+}
+
 function getProfile() {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed.name !== 'string' || !ICON_CHOICES.includes(parsed.icon)) return null;
+    if (!parsed || typeof parsed.name !== 'string' || !isValidIcon(parsed.icon)) return null;
     return parsed;
   } catch (e) {
     return null;
@@ -169,6 +175,8 @@ let selectedMode = null; // 'training' | 'friend'
 let joinIcon = null; // 参加時に送るアイコン（絵文字）。ゲスト等でnullなら名前の頭文字を表示する
 
 // アイコン選択グリッドを描画する。設定ポップアップのプロフィール編集で使う。
+// プリセット絵文字に加えて、末尾に「画像をアップロード」タイルを追加する
+// （アップロード済みならそのタイルにサムネイルを表示し、選択中として強調する）。
 function renderIconPicker(container, selected, onSelect) {
   container.innerHTML = '';
   ICON_CHOICES.forEach((emoji) => {
@@ -179,6 +187,87 @@ function renderIconPicker(container, selected, onSelect) {
     btn.addEventListener('click', () => onSelect(emoji));
     container.appendChild(btn);
   });
+
+  const isCustomImage = typeof selected === 'string' && /^https?:\/\//.test(selected);
+  const uploadBtn = document.createElement('button');
+  uploadBtn.type = 'button';
+  uploadBtn.className = 'icon-choice-btn icon-upload-btn' + (isCustomImage ? ' active' : '');
+  uploadBtn.title = '画像をアップロード';
+  if (isCustomImage) {
+    uploadBtn.style.backgroundImage = `url("${selected}")`;
+  } else {
+    uploadBtn.textContent = '📷';
+  }
+  uploadBtn.addEventListener('click', () => triggerIconUpload(onSelect));
+  container.appendChild(uploadBtn);
+}
+
+// ---- アイコン画像のアップロード ----
+// 選んだ画像はブラウザ側で正方形に中央トリミング＋圧縮してからサーバーへ送る
+// （通信量を抑えるためと、そのままだと巨大な画像がそのままアップロードされてしまうため）。
+const iconUploadInput = document.getElementById('icon-upload-input');
+let pendingIconUploadCallback = null;
+
+function triggerIconUpload(onSelect) {
+  pendingIconUploadCallback = onSelect;
+  iconUploadInput.value = '';
+  iconUploadInput.click();
+}
+
+function resizeImageToDataUrl(file, size) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error('read failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('image load failed'));
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        // JPEGは透過を扱えないため、先に白で塗っておく（透過PNGをそのまま書き出すと
+        // 透明部分が黒くなってしまう）。
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        // 中央を正方形に切り出してから指定サイズへ縮小する（アイコンは丸型表示のため）。
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const sx = (img.naturalWidth - side) / 2;
+        const sy = (img.naturalHeight - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+if (iconUploadInput) {
+  iconUploadInput.addEventListener('change', async () => {
+    const file = iconUploadInput.files && iconUploadInput.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('画像ファイルを選択してください');
+      return;
+    }
+    let dataUrl;
+    try {
+      dataUrl = await resizeImageToDataUrl(file, 256);
+    } catch (e) {
+      showToast('画像の読み込みに失敗しました');
+      return;
+    }
+    showToast('アップロード中…');
+    socket.emit('icon:upload', { clientId, imageBase64: dataUrl }, (res) => {
+      if (res && res.ok && res.url) {
+        if (pendingIconUploadCallback) pendingIconUploadCallback(res.url);
+        showToast('画像を設定しました');
+      } else {
+        showToast((res && res.error) || 'アップロードに失敗しました');
+      }
+    });
+  });
 }
 
 // 保存済みプロフィール（アカウント作成済み）があればアイコン+名前を表示し、無ければ
@@ -186,7 +275,7 @@ function renderIconPicker(container, selected, onSelect) {
 function initProfileUi() {
   const profile = getProfile();
   if (profile) {
-    profileDisplayAvatar.textContent = profile.icon;
+    setAvatarContent(profileDisplayAvatar, profile.name, profile.icon);
     profileDisplayName.textContent = profile.name;
     joinIcon = profile.icon;
     createAccountBtn.classList.add('hidden');
@@ -328,8 +417,14 @@ friendCodeInput.addEventListener('input', () => {
 const settingsBtn = document.getElementById('settings-btn');
 const settingsOverlay = document.getElementById('settings-overlay');
 const settingsCloseBtn = document.getElementById('settings-close-btn');
+const settingsTitle = document.getElementById('settings-title');
 const settingsHome = document.getElementById('settings-home');
 const settingsCategories = document.querySelectorAll('.settings-category');
+const SETTINGS_CATEGORY_TITLES = {
+  'settings-cat-profile': 'プロフィール',
+  'settings-cat-system': 'システム',
+  'settings-cat-app': 'アプリ情報',
+};
 const settingsCatProfileBtn = document.getElementById('settings-cat-profile-btn');
 const settingsCatSystemBtn = document.getElementById('settings-cat-system-btn');
 const settingsCatAppBtn = document.getElementById('settings-cat-app-btn');
@@ -362,7 +457,7 @@ function showSettingsProfileState() {
   if (profile) {
     settingsProfileView.classList.remove('hidden');
     settingsProfileEmpty.classList.add('hidden');
-    settingsProfileAvatar.textContent = profile.icon;
+    setAvatarContent(settingsProfileAvatar, profile.name, profile.icon);
     settingsProfileName.textContent = profile.name;
   } else {
     settingsProfileView.classList.add('hidden');
@@ -373,11 +468,13 @@ function showSettingsProfileState() {
 // 設定ポップアップは「プロフィール／システム／アプリ情報」のカテゴリ選択から始まり、
 // 選んだカテゴリだけを表示する（一度に全部並べない）。
 function showSettingsHome() {
+  settingsTitle.textContent = '設定';
   settingsHome.classList.remove('hidden');
   settingsCategories.forEach((el) => el.classList.add('hidden'));
 }
 
 function showSettingsCategory(id) {
+  settingsTitle.textContent = SETTINGS_CATEGORY_TITLES[id] || '設定';
   settingsHome.classList.add('hidden');
   settingsCategories.forEach((el) => el.classList.toggle('hidden', el.id !== id));
 }
@@ -871,6 +968,15 @@ function updateLetterCountdown(active, key, isFirstLetter) {
 // 誰かが押した直後（buzzed/wrong/correct）は、その人のチップに反応時間を添える。
 // プロフィールでアイコン（絵文字）を設定していればそれを、無ければ名前の頭文字を表示する。
 function setAvatarContent(el, name, icon) {
+  const isImage = typeof icon === 'string' && /^https?:\/\//.test(icon);
+  if (isImage) {
+    el.textContent = '';
+    el.style.backgroundImage = `url("${icon}")`;
+    el.classList.add('has-image');
+    return;
+  }
+  el.style.backgroundImage = '';
+  el.classList.remove('has-image');
   el.textContent = icon || (name || '?').slice(0, 1);
 }
 
@@ -896,9 +1002,13 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
       setAvatarContent(avatar, displayName, isBlocked ? null : p.icon);
       li.appendChild(avatar);
 
+      // 「（あなた）」を名前に付け足すと、特にゲスト同士で名前が「ゲスト2」のように
+      // 区別用の数字付きになった場合、カード幅(80px)に収まらずその数字ごと
+      // 省略記号で切り詰められてしまうことがある（自分を示す縁取り(li.me)が
+      // 既にあるので、数字が犠牲になるリスクを負ってまで文字でも示す必要はない）。
       const name = document.createElement('span');
       name.className = 'player-name';
-      name.textContent = isMe ? `${displayName}（あなた）` : displayName;
+      name.textContent = displayName;
       li.appendChild(name);
 
       const score = document.createElement('span');
@@ -1085,7 +1195,10 @@ socket.on('state', (state) => {
   // 一度nullへ変わっている）ので、締切の変化だけを見ていると次のannounceでリセットが
   // 発火せず、前の問題で縮んだ/止まった幅が「第N問」表示中も残ってしまう。そのため
   // announceに入った瞬間は締切の変化に関わらず必ずリセットする。
-  if (currentPhase === 'announce') {
+  // currentPhase===nullは「ゲーム未進行」（ルール変更等でgame:endされ難易度設定画面に
+  // 戻った場合を含む）を意味する。バー自体は#play-panelの外にあり難易度設定画面でも
+  // 表示され続けるため、ここでリセットしないと出題中に縮み始めた幅で固まったまま残る。
+  if (currentPhase === 'announce' || currentPhase === null) {
     resetRevealTimerBar();
   } else if (prevPhase === 'open' && currentPhase !== 'open' && revealTimerRunning) {
     // 誰かが押して'open'から抜けた（＝中断。時間切れでreveal/correctRevealに

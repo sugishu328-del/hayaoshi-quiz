@@ -209,6 +209,11 @@ h1 {
   background: var(--color-primary-light);
 }
 
+.icon-upload-btn {
+  background-size: cover;
+  background-position: center;
+}
+
 
 /* ---- トグルスイッチの見た目（CPU参加・効果音など、複数箇所で共通利用） ---- */
 .toggle-switch {
@@ -750,6 +755,8 @@ input:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
+  background-size: cover;
+  background-position: center;
 }
 
 .player-name {

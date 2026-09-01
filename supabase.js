@@ -79,4 +79,20 @@ async function deleteAccount(clientId) {
   if (error) console.error('Supabase deleteAccount failed:', error.message);
 }
 
-module.exports = { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount };
+// アイコン画像（プレイヤーが自由にアップロードする分）をStorageの公開バケット"avatars"に
+// clientId名のファイルとして保存する（upsert:trueで同じ人が再アップロードしたら上書き）。
+// 事前審査は行わず、既存の通報・ブロック機能で事後対応する運用（ユーザーの明示的な判断）。
+async function uploadIcon(clientId, buffer, contentType) {
+  if (!supabase) return null;
+  const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${clientId}.${ext}`;
+  const { error } = await supabase.storage.from('avatars').upload(path, buffer, { contentType, upsert: true });
+  if (error) {
+    console.error('Supabase uploadIcon failed:', error.message);
+    return null;
+  }
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  return data ? data.publicUrl : null;
+}
+
+module.exports = { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount, uploadIcon };

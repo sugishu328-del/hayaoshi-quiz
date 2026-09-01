@@ -70,7 +70,7 @@
 <div id="settings-overlay" class="overlay hidden">
   <div class="settings-card">
     <div class="settings-header">
-      <p class="settings-title">設定</p>
+      <p id="settings-title" class="settings-title">設定</p>
       <button type="button" id="settings-close-btn" class="settings-close-btn" aria-label="閉じる">✕</button>
     </div>
 
@@ -100,6 +100,7 @@
         <div id="settings-profile-edit" class="settings-profile-edit hidden">
           <input id="settings-name-input" type="text" placeholder="なまえを入力" maxlength="20" />
           <div id="settings-icon-picker" class="icon-picker"></div>
+          <input type="file" id="icon-upload-input" accept="image/*" class="hidden" />
           <div class="settings-edit-actions">
             <button type="button" id="settings-edit-cancel-btn" class="settings-edit-cancel-btn">キャンセル</button>
             <button type="button" id="settings-edit-save-btn" class="settings-edit-save-btn">保存</button>

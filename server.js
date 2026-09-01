@@ -5,7 +5,16 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { questionBanks, DIFFICULTIES, CPU_ID, DISCONNECT_GRACE_MS, ICON_CHOICES } = require('./gameData');
 const Room = require('./room');
-const { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount } = require('./supabase');
+const { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount, uploadIcon } = require('./supabase');
+
+// アップロード画像アイコンの公開URLはこのプレフィックス配下のものだけを受け付ける
+// （他ドメインの画像URLを自由に送りつけられて表示させられてしまうのを防ぐため）。
+const ICON_URL_PREFIX = process.env.SUPABASE_URL ? `${process.env.SUPABASE_URL}/storage/v1/object/public/avatars/` : null;
+function isValidIcon(icon) {
+  if (typeof icon !== 'string') return false;
+  if (ICON_CHOICES.includes(icon)) return true;
+  return !!ICON_URL_PREFIX && icon.startsWith(ICON_URL_PREFIX);
+}
 
 const app = express();
 const httpServer = createServer(app);
@@ -174,9 +183,10 @@ io.on('connection', (socket) => {
     const { name, clientId, mode, icon, code } = payload || {};
     const id = (typeof clientId === 'string' && clientId.trim()) ? clientId.trim().slice(0, 100) : null;
     if (!id || id === CPU_ID) return; // clientIdを送ってこない不正なクライアント、CPU用の予約IDは参加させない
-    // アイコンは決められた絵文字一覧からのみ受け付ける（自由入力にすると不適切な文字列を
-    // 表示させられてしまうため）。ゲスト参加時などはnullのまま（=名前の頭文字を表示）。
-    const cleanIcon = (typeof icon === 'string' && ICON_CHOICES.includes(icon)) ? icon : null;
+    // アイコンは決められた絵文字一覧、またはicon:uploadで発行した自分のアップロード画像URL
+    // のみ受け付ける（自由な文字列や他ドメインの画像URLを表示させられてしまうのを防ぐため）。
+    // ゲスト参加時などはnullのまま（=名前の頭文字を表示）。
+    const cleanIcon = isValidIcon(icon) ? icon : null;
     const cleanCode = typeof code === 'string' ? code.trim().toUpperCase().slice(0, 8) : '';
 
     // トレーニングモードは「持ち主(clientId)専用の部屋」。フレンド対戦モードは合言葉ごとの部屋で、
@@ -462,6 +472,37 @@ io.on('connection', (socket) => {
     deleteAccount(id)
       .then(() => { if (typeof ack === 'function') ack({ ok: true }); })
       .catch(() => { if (typeof ack === 'function') ack({ ok: false }); });
+  });
+
+  // プレイヤーが自分でアップロードするアイコン画像。事前審査はせず、既存の通報・ブロック
+  // 機能による事後対応の運用にしている(ユーザーの選択、project_gacha_feature_backlog等と
+  // 同様に景品性のない純粋なコスメティック機能)。base64データはブラウザ側で既に256x256の
+  // 正方形JPEGへ縮小・圧縮済みだが、念のためサーバー側でも形式とサイズを検証する。
+  onLimited('icon:upload', (payload, ack) => {
+    const reply = (res) => { if (typeof ack === 'function') ack(res); };
+    const id = cleanClientIdField((payload || {}).clientId);
+    const dataUrl = (payload || {}).imageBase64;
+    if (!id || typeof dataUrl !== 'string') { reply({ ok: false, error: '不正なリクエストです' }); return; }
+    const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(dataUrl);
+    if (!match) { reply({ ok: false, error: '画像形式が正しくありません' }); return; }
+    const [, mimeType, base64Data] = match;
+    let buffer;
+    try {
+      buffer = Buffer.from(base64Data, 'base64');
+    } catch (e) {
+      reply({ ok: false, error: '画像データが正しくありません' });
+      return;
+    }
+    if (buffer.length === 0 || buffer.length > 2 * 1024 * 1024) {
+      reply({ ok: false, error: '画像サイズが大きすぎます' });
+      return;
+    }
+    uploadIcon(id, buffer, mimeType)
+      .then((url) => {
+        if (!url) { reply({ ok: false, error: 'アップロードに失敗しました' }); return; }
+        reply({ ok: true, url });
+      })
+      .catch(() => reply({ ok: false, error: 'アップロードに失敗しました' }));
   });
 
   socket.on('disconnect', () => {
