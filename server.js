@@ -5,7 +5,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 const { questionBanks, DIFFICULTIES, CPU_ID, DISCONNECT_GRACE_MS, ICON_CHOICES } = require('./gameData');
 const Room = require('./room');
-const { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount, uploadIcon } = require('./supabase');
+const { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount, uploadIcon, deleteIcon } = require('./supabase');
 
 // アップロード画像アイコンの公開URLはこのプレフィックス配下のものだけを受け付ける
 // （他ドメインの画像URLを自由に送りつけられて表示させられてしまうのを防ぐため）。
@@ -506,6 +506,16 @@ io.on('connection', (socket) => {
         reply({ ok: true, url });
       })
       .catch(() => reply({ ok: false, error: 'アップロードに失敗しました' }));
+  });
+
+  // アップロード済みアイコン画像の削除（プロフィール編集画面で拡大表示→削除確認を経て呼ばれる）。
+  onLimited('icon:delete', (payload, ack) => {
+    const reply = (res) => { if (typeof ack === 'function') ack(res); };
+    const id = cleanClientIdField((payload || {}).clientId);
+    if (!id) { reply({ ok: false, error: '不正なリクエストです' }); return; }
+    deleteIcon(id)
+      .then((ok) => reply(ok ? { ok: true } : { ok: false, error: '削除に失敗しました' }))
+      .catch(() => reply({ ok: false, error: '削除に失敗しました' }));
   });
 
   socket.on('disconnect', () => {

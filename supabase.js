@@ -72,11 +72,13 @@ async function getBlockList(blockerClientId) {
 
 // アカウント削除。プロフィール（players）とブロックリストは削除するが、通報記録（reports）は
 // 安全対策の記録として残す（他アプリの一般的な運用にならい、削除しない）。
+// アップロード済みアイコン画像（Storage）も、孤立ファイルを残さないよう合わせて削除する。
 async function deleteAccount(clientId) {
   if (!supabase) return;
   await supabase.from('blocks').delete().or(`blocker_client_id.eq.${clientId},blocked_client_id.eq.${clientId}`);
   const { error } = await supabase.from('players').delete().eq('client_id', clientId);
   if (error) console.error('Supabase deleteAccount failed:', error.message);
+  await deleteIcon(clientId);
 }
 
 // アイコン画像（プレイヤーが自由にアップロードする分）をStorageの公開バケット"avatars"に
@@ -95,4 +97,17 @@ async function uploadIcon(clientId, buffer, contentType) {
   return data ? data.publicUrl : null;
 }
 
-module.exports = { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount, uploadIcon };
+// アップロード済みアイコン画像をStorageから削除する。拡張子はuploadIconが使うもの
+// （jpg/png/webp）のいずれかなので全候補を一度に渡す（存在しないパスは無視される）。
+async function deleteIcon(clientId) {
+  if (!supabase) return false;
+  const paths = ['jpg', 'png', 'webp'].map((ext) => `${clientId}.${ext}`);
+  const { error } = await supabase.storage.from('avatars').remove(paths);
+  if (error) {
+    console.error('Supabase deleteIcon failed:', error.message);
+    return false;
+  }
+  return true;
+}
+
+module.exports = { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount, uploadIcon, deleteIcon };

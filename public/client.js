@@ -592,6 +592,46 @@ deleteAccountOkBtn.addEventListener('click', () => {
   });
 });
 
+// ---- アイコン画像の拡大表示・削除（プロフィール編集中、アイコンをタップすると開く） ----
+const iconPreviewOverlay = document.getElementById('icon-preview-overlay');
+const iconPreviewCloseBtn = document.getElementById('icon-preview-close-btn');
+const iconPreviewImage = document.getElementById('icon-preview-image');
+const iconPreviewDeleteBtn = document.getElementById('icon-preview-delete-btn');
+const iconDeleteConfirmOverlay = document.getElementById('icon-delete-confirm-overlay');
+const iconDeleteCancelBtn = document.getElementById('icon-delete-cancel-btn');
+const iconDeleteOkBtn = document.getElementById('icon-delete-ok-btn');
+
+settingsIconPreview.addEventListener('click', () => {
+  // 画像未設定（名前の頭文字のフォールバック表示）のときは拡大表示するものがない。
+  const isImage = typeof settingsEditIcon === 'string' && /^https?:\/\//.test(settingsEditIcon);
+  if (!isImage) return;
+  iconPreviewImage.style.backgroundImage = `url("${settingsEditIcon}")`;
+  iconPreviewOverlay.classList.remove('hidden');
+});
+iconPreviewCloseBtn.addEventListener('click', () => {
+  iconPreviewOverlay.classList.add('hidden');
+});
+iconPreviewDeleteBtn.addEventListener('click', () => {
+  iconPreviewOverlay.classList.add('hidden');
+  iconDeleteConfirmOverlay.classList.remove('hidden');
+});
+iconDeleteCancelBtn.addEventListener('click', () => {
+  iconDeleteConfirmOverlay.classList.add('hidden');
+  iconPreviewOverlay.classList.remove('hidden');
+});
+iconDeleteOkBtn.addEventListener('click', () => {
+  socket.emit('icon:delete', { clientId }, (res) => {
+    iconDeleteConfirmOverlay.classList.add('hidden');
+    if (res && res.ok) {
+      settingsEditIcon = null;
+      updateSettingsIconPreview();
+      showToast('画像を削除しました');
+    } else {
+      showToast((res && res.error) || '削除に失敗しました');
+    }
+  });
+});
+
 
 // ---- モード選択に戻る ----
 const backToModeBtn = document.getElementById('back-to-mode-btn');

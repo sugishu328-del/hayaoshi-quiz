@@ -85,8 +85,6 @@
       <button type="button" class="settings-back-btn">← 戻る</button>
 
       <div class="settings-section">
-        <p class="settings-section-title">プロフィール</p>
-
         <div id="settings-profile-view" class="settings-profile-view hidden">
           <span id="settings-profile-avatar" class="player-avatar"></span>
           <span id="settings-profile-name" class="settings-profile-name"></span>
@@ -101,7 +99,7 @@
         <div id="settings-profile-edit" class="settings-profile-edit hidden">
           <input id="settings-name-input" type="text" placeholder="なまえを入力" maxlength="20" />
           <div class="icon-edit-row">
-            <span id="settings-icon-preview" class="player-avatar icon-edit-preview"></span>
+            <button type="button" id="settings-icon-preview" class="player-avatar icon-edit-preview"></button>
             <button type="button" id="settings-choose-image-btn" class="settings-text-btn">画像を選ぶ</button>
           </div>
           <input type="file" id="icon-upload-input" accept="image/*" class="hidden" />
@@ -153,6 +151,24 @@
     <div class="end-confirm-actions">
       <button type="button" id="delete-account-cancel-btn" class="end-confirm-cancel">キャンセル</button>
       <button type="button" id="delete-account-ok-btn" class="end-confirm-ok">削除する</button>
+    </div>
+  </div>
+</div>
+
+<div id="icon-preview-overlay" class="buzz-overlay hidden">
+  <div class="buzz-card icon-preview-card">
+    <button type="button" id="icon-preview-close-btn" class="settings-close-btn icon-preview-close-btn" aria-label="閉じる">✕</button>
+    <div id="icon-preview-image" class="icon-preview-image"></div>
+    <button type="button" id="icon-preview-delete-btn" class="settings-danger-link">画像を削除</button>
+  </div>
+</div>
+
+<div id="icon-delete-confirm-overlay" class="buzz-overlay hidden">
+  <div class="buzz-card end-confirm-card">
+    <p class="end-confirm-message">画像を削除しますか？</p>
+    <div class="end-confirm-actions">
+      <button type="button" id="icon-delete-cancel-btn" class="end-confirm-cancel">キャンセル</button>
+      <button type="button" id="icon-delete-ok-btn" class="end-confirm-ok">削除する</button>
     </div>
   </div>
 </div>
