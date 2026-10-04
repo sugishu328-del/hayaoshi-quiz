@@ -41,8 +41,8 @@ class Room {
     this.difficulty = 'B';
     this.winScore = 5; // 0 = 制限なし。設定した点数に誰かが到達したら次の問題に進まずゲーム終了にする
     this.questionLimit = 30; // 0 = 制限なし。この問題数を出題し終えたらゲーム終了にする
-    this.wrongPenalty = 0; // 0 = ペナルティなし。誤答1回につきこの点数を減点する（0点未満にはしない）
-    this.wrongLimit = 0; // 0 = 無制限。1人の誤答回数がこれに達したら失格（disqualified）にする
+    this.wrongPenalty = 1; // 0 = ペナルティなし。誤答1回につきこの点数を減点する（0点未満にはしない）
+    this.wrongLimit = 5; // 0 = 無制限。1人の誤答回数がこれに達したら失格（disqualified）にする
     this.phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
     this.question = '';
     this.questionNumber = 0; // 何問目か（game:startで1から始まる）

@@ -309,7 +309,20 @@ socket.on('disconnect', () => {
 // 「その部屋IDの部屋が見つかりません」等、参加に失敗した時にサーバーから届く。
 socket.on('join:error', ({ reason }) => {
   if (reason === 'not_found') {
-    friendJoinError.classList.remove('hidden');
+    if (hasJoined && !gameScreen.classList.contains('hidden')) {
+      // ゲーム画面を表示していた状態からの自動再参加（画面ロック等からの復帰）が失敗したケース。
+      // 猶予時間切れで部屋ごと破棄された後なので、古い画面のまま固まらせずスタート画面に戻す。
+      hasJoined = false;
+      selectedMode = null;
+      joinedFriendCode = '';
+      closeFriendOverlay();
+      gameScreen.classList.add('hidden');
+      joinScreen.classList.remove('hidden');
+      initProfileUi();
+      showToast('長時間切断していたため部屋が終了しました。もう一度部屋を作成してください');
+    } else {
+      friendJoinError.classList.remove('hidden');
+    }
   }
 });
 
