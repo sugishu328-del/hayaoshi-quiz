@@ -36,7 +36,7 @@ async function submitReport(reporterClientId, reportedClientId, reportedName, ro
 }
 
 // ブロックは今のところ「自分の画面上でその相手の名前・アイコンを伏せる」表示上の効果のみ
-// （合言葉制のため見知らぬ人との自動マッチングは存在しない）。ただし将来マッチング機能を
+// （部屋ID制のため見知らぬ人との自動マッチングは存在しない）。ただし将来マッチング機能を
 // 追加した際にすぐ活用できるよう、サーバー側（Supabase）に保存しておく。
 async function addBlock(blockerClientId, blockedClientId, blockedName) {
   if (!supabase) return;

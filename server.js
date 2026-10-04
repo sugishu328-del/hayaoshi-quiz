@@ -23,7 +23,7 @@ const io = new Server(httpServer);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---- 部屋(Room)管理 ----
-// トレーニング部屋は`training:${clientId}`、フレンド部屋は`friend:${合言葉}`をキーにして
+// トレーニング部屋は`training:${clientId}`、フレンド部屋は`friend:${部屋ID}`をキーにして
 // 動的に作る（起動時に部屋を作っておく必要はない）。
 const rooms = new Map();
 
@@ -33,15 +33,18 @@ const rooms = new Map();
 // 大きめに取ってある）。
 const MAX_DYNAMIC_ROOMS = 5000;
 
-// 同一IPからの部屋「新規作成」だけを対象にした頻度制限（既存部屋への再参加・合言葉での
+// 同一IPからの部屋「新規作成」だけを対象にした頻度制限（既存部屋への再参加・部屋IDでの
 // 参加は対象外）。学校や家庭など同じIPを複数人で共有している状況でも困らないよう、
 // 余裕を持った値にしてある。
 const ROOM_CREATION_WINDOW_MS = 60000;
 const ROOM_CREATION_MAX_PER_WINDOW = 20;
 const roomCreationTimestamps = new Map(); // ip -> 直近の作成時刻の配列
 
-// フレンド部屋の合言葉に使う文字。0/O、1/I/Lのような紛らわしい文字は誤入力を防ぐため除外する。
-const ROOM_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+// フレンド部屋の部屋IDに使う文字。数字のみ（スマホの数字キーパッドで入力しやすく、
+// 音声で伝える際も英字より聞き間違えにくいための方針、2026-10-04）。
+// 4桁(1万通り)は最大部屋数(5000)に対して心許ないため、将来的に桁数を増やす検討の余地あり
+// （[[project_friend_room_codes]]参照）。
+const ROOM_CODE_CHARS = '0123456789';
 const ROOM_CODE_LENGTH = 4;
 function generateRoomCode() {
   let code;
@@ -50,7 +53,7 @@ function generateRoomCode() {
     for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
       code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
     }
-  } while (rooms.has(`friend:${code}`)); // 衝突（既に使われている合言葉）を避ける
+  } while (rooms.has(`friend:${code}`)); // 衝突（既に使われている部屋ID）を避ける
   return code;
 }
 
@@ -189,15 +192,15 @@ io.on('connection', (socket) => {
     const cleanIcon = isValidIcon(icon) ? icon : null;
     const cleanCode = typeof code === 'string' ? code.trim().toUpperCase().slice(0, 8) : '';
 
-    // トレーニングモードは「持ち主(clientId)専用の部屋」。フレンド対戦モードは合言葉ごとの部屋で、
-    // 合言葉を指定すれば既存の部屋に参加、指定しなければ新しい部屋（新しい合言葉）を作る。
+    // トレーニングモードは「持ち主(clientId)専用の部屋」。フレンド対戦モードは部屋IDごとの部屋で、
+    // 部屋IDを指定すれば既存の部屋に参加、指定しなければ新しい部屋（新しい部屋ID）を作る。
     let targetRoomId;
     if (mode === 'training') {
       targetRoomId = `training:${id}`;
     } else if (mode === 'friend' && cleanCode) {
       targetRoomId = `friend:${cleanCode}`;
       if (!rooms.has(targetRoomId)) {
-        socket.emit('join:error', { reason: 'not_found' }); // その合言葉の部屋が存在しない
+        socket.emit('join:error', { reason: 'not_found' }); // その部屋IDの部屋が存在しない
         return;
       }
     } else if (mode === 'friend' && !cleanCode) {

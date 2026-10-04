@@ -18,13 +18,13 @@ const {
 } = require('./gameData');
 
 // 1つの対戦部屋分の状態とロジックをまとめたクラス。server.js側でトレーニング部屋
-// （`training:${clientId}`）・フレンド部屋（`friend:${合言葉}`）ごとにインスタンス化される。
+// （`training:${clientId}`）・フレンド部屋（`friend:${部屋ID}`）ごとにインスタンス化される。
 class Room {
   constructor(id, io) {
     this.id = id; // Socket.ioの部屋名としても使う
     this.io = io;
     this.isTraining = false; // trueならトレーニングモード専用の部屋（CPU固定参加・持ち主が抜けたら自動で破棄される）
-    this.code = null; // フレンド部屋の合言葉（4桁）。トレーニング部屋ではnullのまま
+    this.code = null; // フレンド部屋の部屋ID（4桁の数字）。トレーニング部屋ではnullのまま
     this.hostId = null; // 部屋の設定・開始/終了を操作できるclientId。最初に入った人が持つ
 
     // ---- ゲーム状態（出題者なし・全員参加者） ----

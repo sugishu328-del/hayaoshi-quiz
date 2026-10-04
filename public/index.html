@@ -58,10 +58,10 @@
       <div id="friend-join-step" class="friend-join-step hidden">
         <button type="button" id="friend-join-back-btn" class="friend-back-btn">← 戻る</button>
         <div class="friend-join-row">
-          <input type="text" id="friend-code-input" placeholder="合言葉(4桁)" maxlength="4" autocapitalize="characters" />
+          <input type="text" id="friend-code-input" placeholder="部屋ID(4桁)" maxlength="4" inputmode="numeric" pattern="[0-9]*" />
           <button type="button" id="friend-join-btn">入室</button>
         </div>
-        <p id="friend-join-error" class="friend-join-error hidden">その合言葉の部屋が見つかりません</p>
+        <p id="friend-join-error" class="friend-join-error hidden">その部屋IDの部屋が見つかりません</p>
       </div>
     </div>
   </div>
@@ -76,6 +76,7 @@
 
     <div id="settings-home" class="settings-home">
       <button type="button" id="settings-cat-profile-btn" class="settings-cat-btn">プロフィール</button>
+      <button type="button" id="settings-cat-block-btn" class="settings-cat-btn">ブロックリスト</button>
       <button type="button" id="settings-cat-system-btn" class="settings-cat-btn">システム</button>
       <button type="button" id="settings-cat-app-btn" class="settings-cat-btn">アプリ情報</button>
     </div>
@@ -112,6 +113,10 @@
 
         <button type="button" id="settings-delete-account-btn" class="settings-danger-link">アカウントを削除</button>
       </div>
+    </div>
+
+    <div id="settings-cat-block" class="settings-category hidden">
+      <button type="button" class="settings-back-btn">← 戻る</button>
 
       <div class="settings-section">
         <p class="settings-section-title">ブロックリスト</p>
@@ -169,7 +174,7 @@
 
   <div class="game-body">
     <div id="setup-panel" class="setup-panel">
-      <div id="room-code-display" class="room-code-display hidden">合言葉：<span id="room-code-text"></span></div>
+      <div id="room-code-display" class="room-code-display hidden">部屋ID：<span id="room-code-text"></span></div>
       <p id="host-only-note" class="host-only-note hidden">ホストのみ操作できます</p>
       <div class="setting-card">
         <p class="setup-label">難易度設定</p>
@@ -331,7 +336,7 @@
         <li><span class="rule-check-label">出題数</span><span id="rule-check-qlimit" class="rule-check-value"></span></li>
         <li><span class="rule-check-label">誤答減点</span><span id="rule-check-penalty" class="rule-check-value"></span></li>
         <li><span class="rule-check-label">誤答上限</span><span id="rule-check-wronglimit" class="rule-check-value"></span></li>
-        <li id="rule-check-roomcode-row" class="hidden"><span class="rule-check-label">合言葉</span><span id="rule-check-roomcode" class="rule-check-value"></span></li>
+        <li id="rule-check-roomcode-row" class="hidden"><span class="rule-check-label">部屋ID</span><span id="rule-check-roomcode" class="rule-check-value"></span></li>
       </ul>
       <button type="button" id="rule-change-btn" class="rule-change-btn">ルール変更</button>
     </div>

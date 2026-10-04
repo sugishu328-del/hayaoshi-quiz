@@ -273,7 +273,7 @@ createAccountBtn.addEventListener('click', () => {
   openProfileEdit();
 });
 
-let joinedFriendCode = ''; // 参加中のフレンド部屋の合言葉（再接続時の再参加に使う）
+let joinedFriendCode = ''; // 参加中のフレンド部屋の部屋ID（再接続時の再参加に使う）
 
 function doJoin(name, mode, code) {
   savedName = name;
@@ -289,7 +289,7 @@ const connectionBanner = document.getElementById('connection-banner');
 
 // 画面ロック・電波切れ等で切断された後、socket.ioが自動で再接続したときに
 // 自動で再参加させる（clientId・modeが同じなのでサーバー側で同じ部屋・スコアに戻れる）。
-// フレンド部屋の場合は合言葉も一緒に送り直し、同じ部屋に戻れるようにする。
+// フレンド部屋の場合は部屋IDも一緒に送り直し、同じ部屋に戻れるようにする。
 socket.on('connect', () => {
   if (hasJoined) {
     sfxPhaseInitialized = false;
@@ -306,7 +306,7 @@ socket.on('disconnect', () => {
   connectionBanner.classList.remove('hidden');
 });
 
-// 「その合言葉の部屋が見つかりません」等、参加に失敗した時にサーバーから届く。
+// 「その部屋IDの部屋が見つかりません」等、参加に失敗した時にサーバーから届く。
 socket.on('join:error', ({ reason }) => {
   if (reason === 'not_found') {
     friendJoinError.classList.remove('hidden');
@@ -332,7 +332,7 @@ function startJoinFlow(mode, code) {
 modeTrainingBtn.addEventListener('click', () => startJoinFlow('training'));
 modeFriendBtn.addEventListener('click', () => openFriendOverlay());
 
-// ---- フレンド対戦：部屋を作る／合言葉で入る ----
+// ---- フレンド対戦：部屋を作る／部屋IDで入る ----
 const friendOverlay = document.getElementById('friend-overlay');
 const friendCloseBtn = document.getElementById('friend-close-btn');
 const friendChoiceStep = document.getElementById('friend-choice-step');
@@ -396,10 +396,12 @@ const settingsHome = document.getElementById('settings-home');
 const settingsCategories = document.querySelectorAll('.settings-category');
 const SETTINGS_CATEGORY_TITLES = {
   'settings-cat-profile': 'プロフィール',
+  'settings-cat-block': 'ブロックリスト',
   'settings-cat-system': 'システム',
   'settings-cat-app': 'アプリ情報',
 };
 const settingsCatProfileBtn = document.getElementById('settings-cat-profile-btn');
+const settingsCatBlockBtn = document.getElementById('settings-cat-block-btn');
 const settingsCatSystemBtn = document.getElementById('settings-cat-system-btn');
 const settingsCatAppBtn = document.getElementById('settings-cat-app-btn');
 const settingsProfileView = document.getElementById('settings-profile-view');
@@ -483,6 +485,7 @@ settingsOverlay.addEventListener('click', (e) => {
   if (e.target === settingsOverlay) closeSettings();
 });
 settingsCatProfileBtn.addEventListener('click', () => showSettingsCategory('settings-cat-profile'));
+settingsCatBlockBtn.addEventListener('click', () => showSettingsCategory('settings-cat-block'));
 settingsCatSystemBtn.addEventListener('click', () => showSettingsCategory('settings-cat-system'));
 settingsCatAppBtn.addEventListener('click', () => showSettingsCategory('settings-cat-app'));
 document.querySelectorAll('.settings-back-btn').forEach((btn) => {
@@ -527,7 +530,7 @@ function showToast(message) {
 
 // ---- ブロックリスト（clientId -> 名前。自分がブロックした相手の表示を伏せるのに使う） ----
 // 効果は今のところ「自分の画面上でその相手の名前・アイコンを伏せる」表示上のミュートのみ
-// （合言葉制のため見知らぬ人との自動マッチングは存在しない）。サーバー側（Supabase）に保存し、
+// （部屋ID制のため見知らぬ人との自動マッチングは存在しない）。サーバー側（Supabase）に保存し、
 // 将来マッチング機能を追加した際にすぐ活用できるようにしてある。
 const blockedPlayers = new Map();
 
@@ -1241,7 +1244,7 @@ socket.on('state', (state) => {
   syncStepperUnit(winScoreInput, winScoreUnit);
   syncStepperUnit(questionLimitInput, questionLimitUnit);
 
-  // フレンド部屋の合言葉表示・ホスト以外の操作ロック。
+  // フレンド部屋の部屋ID表示・ホスト以外の操作ロック。
   joinedFriendCode = roomCode || '';
   roomCodeDisplay.classList.toggle('hidden', !roomCode);
   roomCodeText.textContent = roomCode || '';
