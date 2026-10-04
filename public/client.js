@@ -622,10 +622,12 @@ iconPreviewCloseBtn.addEventListener('click', () => {
   iconPreviewOverlay.classList.add('hidden');
 });
 iconPreviewChangeBtn.addEventListener('click', () => {
-  iconPreviewOverlay.classList.add('hidden');
+  // 拡大表示を閉じずに（背後に残したまま）ファイル選択（カメラ撮影／ライブラリ等の
+  // OS側の選択肢）を開く。選び終わったら拡大表示ごと閉じて編集画面に戻る。
   triggerIconUpload((url) => {
     settingsEditIcon = url;
     updateSettingsIconPreview();
+    iconPreviewOverlay.classList.add('hidden');
   });
 });
 iconPreviewDeleteBtn.addEventListener('click', () => {

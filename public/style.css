@@ -35,6 +35,7 @@
 
   --color-danger: #ff4d4d;
   --color-danger-dark: #a30000;
+  --color-danger-light: #ffe0e0;
 
   --color-correct: #d1453a;
   --color-wrong: #2b6fd1;
@@ -1340,6 +1341,9 @@ input:disabled {
 .icon-preview-card .settings-danger-link {
   align-self: center;
   font-size: 0.95rem;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--color-danger-light);
 }
 
 /* ゲーム終了（先取点数・出題数上限に到達）の結果画面 */
