@@ -99,7 +99,10 @@
 
         <div id="settings-profile-edit" class="settings-profile-edit hidden">
           <input id="settings-name-input" type="text" placeholder="なまえを入力" maxlength="20" />
-          <div id="settings-icon-picker" class="icon-picker"></div>
+          <div class="icon-edit-row">
+            <span id="settings-icon-preview" class="player-avatar icon-edit-preview"></span>
+            <button type="button" id="settings-choose-image-btn" class="settings-text-btn">画像を選ぶ</button>
+          </div>
           <input type="file" id="icon-upload-input" accept="image/*" class="hidden" />
           <div class="settings-edit-actions">
             <button type="button" id="settings-edit-cancel-btn" class="settings-edit-cancel-btn">キャンセル</button>

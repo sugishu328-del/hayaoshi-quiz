@@ -187,31 +187,18 @@ h1 {
   box-shadow: var(--shadow-raised-sm);
 }
 
-/* ---- アイコン選択（プリセット絵文字） ---- */
-.icon-picker {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+/* ---- アイコン編集（画像アップロードのみ。プリセット絵文字選択は廃止） ---- */
+.icon-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-.icon-choice-btn {
-  padding: 8px 0;
-  border-radius: 12px;
-  border: 2px solid var(--color-border-strong);
-  background: var(--color-surface);
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.icon-choice-btn.active {
-  border-color: var(--color-primary);
-  background: var(--color-primary-light);
-}
-
-.icon-upload-btn {
-  background-size: cover;
-  background-position: center;
+.icon-edit-preview {
+  width: 72px;
+  height: 72px;
+  font-size: 2rem;
+  flex-shrink: 0;
 }
 
 

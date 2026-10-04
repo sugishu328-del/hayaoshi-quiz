@@ -39,8 +39,9 @@ const clientId = getClientId();
 const ICON_CHOICES = ['🦊', '🐱', '🐶', '🐻', '🦁', '🐰', '🐼', '🐨'];
 const PROFILE_KEY = 'hayaoshi_profile';
 
-// プリセット絵文字に加えて、アップロード済み画像（Supabase Storageの公開URL）も
-// アイコンとして許可する。サーバー側(server.js)も同じ判定を持っている。
+// アップロード済み画像（Supabase Storageの公開URL）をアイコンとして許可する。
+// ICON_CHOICESのプリセット選択UIは廃止したが、過去に選んで保存済みのプロフィールが
+// 引き続き有効と判定されるよう、判定自体は残しておく。サーバー側(server.js)も同じ判定を持つ。
 function isValidIcon(icon) {
   return ICON_CHOICES.includes(icon) || (typeof icon === 'string' && /^https?:\/\//.test(icon));
 }
@@ -50,7 +51,8 @@ function getProfile() {
     const raw = localStorage.getItem(PROFILE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed.name !== 'string' || !isValidIcon(parsed.icon)) return null;
+    // icon===nullは「画像未設定（名前の頭文字で表示）」という正当な状態なので許可する。
+    if (!parsed || typeof parsed.name !== 'string' || (parsed.icon !== null && !isValidIcon(parsed.icon))) return null;
     return parsed;
   } catch (e) {
     return null;
@@ -173,34 +175,6 @@ let hasJoined = false;
 let savedName = '';
 let selectedMode = null; // 'training' | 'friend'
 let joinIcon = null; // 参加時に送るアイコン（絵文字）。ゲスト等でnullなら名前の頭文字を表示する
-
-// アイコン選択グリッドを描画する。設定ポップアップのプロフィール編集で使う。
-// プリセット絵文字に加えて、末尾に「画像をアップロード」タイルを追加する
-// （アップロード済みならそのタイルにサムネイルを表示し、選択中として強調する）。
-function renderIconPicker(container, selected, onSelect) {
-  container.innerHTML = '';
-  ICON_CHOICES.forEach((emoji) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'icon-choice-btn' + (emoji === selected ? ' active' : '');
-    btn.textContent = emoji;
-    btn.addEventListener('click', () => onSelect(emoji));
-    container.appendChild(btn);
-  });
-
-  const isCustomImage = typeof selected === 'string' && /^https?:\/\//.test(selected);
-  const uploadBtn = document.createElement('button');
-  uploadBtn.type = 'button';
-  uploadBtn.className = 'icon-choice-btn icon-upload-btn' + (isCustomImage ? ' active' : '');
-  uploadBtn.title = '画像をアップロード';
-  if (isCustomImage) {
-    uploadBtn.style.backgroundImage = `url("${selected}")`;
-  } else {
-    uploadBtn.textContent = '📷';
-  }
-  uploadBtn.addEventListener('click', () => triggerIconUpload(onSelect));
-  container.appendChild(uploadBtn);
-}
 
 // ---- アイコン画像のアップロード ----
 // 選んだ画像はブラウザ側で正方形に中央トリミング＋圧縮してからサーバーへ送る
@@ -436,7 +410,8 @@ const settingsProfileName = document.getElementById('settings-profile-name');
 const settingsEditProfileBtn = document.getElementById('settings-edit-profile-btn');
 const settingsCreateProfileBtn = document.getElementById('settings-create-profile-btn');
 const settingsNameInput = document.getElementById('settings-name-input');
-const settingsIconPicker = document.getElementById('settings-icon-picker');
+const settingsIconPreview = document.getElementById('settings-icon-preview');
+const settingsChooseImageBtn = document.getElementById('settings-choose-image-btn');
 const settingsEditCancelBtn = document.getElementById('settings-edit-cancel-btn');
 const settingsEditSaveBtn = document.getElementById('settings-edit-save-btn');
 const soundToggleCheckbox = document.getElementById('sound-toggle-checkbox');
@@ -445,9 +420,10 @@ const settingsBlockListEmpty = document.getElementById('settings-block-list-empt
 
 let settingsEditIcon = null;
 
-function selectSettingsIcon(emoji) {
-  settingsEditIcon = emoji;
-  renderIconPicker(settingsIconPicker, settingsEditIcon, selectSettingsIcon);
+// 編集中のプレビューを今のsettingsEditIcon・名前入力欄の内容で更新する。
+// 画像未設定ならゲストと同じ「名前の頭文字」表示になる（setAvatarContentのフォールバック）。
+function updateSettingsIconPreview() {
+  setAvatarContent(settingsIconPreview, settingsNameInput.value, settingsEditIcon);
 }
 
 // プロフィールの有無に応じて「表示」か「未作成」のどちらかを見せる（編集フォームは閉じる）。
@@ -494,7 +470,8 @@ function openProfileEdit() {
   showSettingsCategory('settings-cat-profile');
   const profile = getProfile();
   settingsNameInput.value = profile ? profile.name : '';
-  selectSettingsIcon(profile ? profile.icon : ICON_CHOICES[0]);
+  settingsEditIcon = profile ? profile.icon : null;
+  updateSettingsIconPreview();
   settingsProfileView.classList.add('hidden');
   settingsProfileEmpty.classList.add('hidden');
   settingsProfileEdit.classList.remove('hidden');
@@ -514,6 +491,14 @@ document.querySelectorAll('.settings-back-btn').forEach((btn) => {
 settingsEditProfileBtn.addEventListener('click', openProfileEdit);
 settingsCreateProfileBtn.addEventListener('click', openProfileEdit);
 settingsEditCancelBtn.addEventListener('click', showSettingsProfileState);
+settingsChooseImageBtn.addEventListener('click', () => {
+  triggerIconUpload((url) => {
+    settingsEditIcon = url;
+    updateSettingsIconPreview();
+  });
+});
+// 画像未設定の間はフォールバック表示が名前の頭文字なので、名前を打つたびにプレビューへ反映する。
+settingsNameInput.addEventListener('input', updateSettingsIconPreview);
 settingsEditSaveBtn.addEventListener('click', () => {
   const name = settingsNameInput.value.trim();
   if (!name) {
