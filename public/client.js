@@ -426,7 +426,6 @@ const settingsEditProfileBtn = document.getElementById('settings-edit-profile-bt
 const settingsCreateProfileBtn = document.getElementById('settings-create-profile-btn');
 const settingsNameInput = document.getElementById('settings-name-input');
 const settingsIconPreview = document.getElementById('settings-icon-preview');
-const settingsChooseImageBtn = document.getElementById('settings-choose-image-btn');
 const settingsEditCancelBtn = document.getElementById('settings-edit-cancel-btn');
 const settingsEditSaveBtn = document.getElementById('settings-edit-save-btn');
 const soundToggleCheckbox = document.getElementById('sound-toggle-checkbox');
@@ -435,12 +434,9 @@ const settingsBlockListEmpty = document.getElementById('settings-block-list-empt
 
 let settingsEditIcon = null;
 
-// 編集中のプレビューを今のsettingsEditIcon・名前入力欄の内容で更新する。
-// 画像未設定ならゲストと同じ「名前の頭文字」表示になる（setAvatarContentのフォールバック）。
+// 編集中のプレビューを今のsettingsEditIconの内容で更新する。
 function updateSettingsIconPreview() {
   setAvatarContent(settingsIconPreview, settingsNameInput.value, settingsEditIcon);
-  const hasImage = typeof settingsEditIcon === 'string' && /^https?:\/\//.test(settingsEditIcon);
-  settingsChooseImageBtn.textContent = hasImage ? 'アイコンを変更する' : 'アイコンを設定する';
 }
 
 // プロフィールの有無に応じて「表示」か「未作成」のどちらかを見せる（編集フォームは閉じる）。
@@ -509,14 +505,6 @@ document.querySelectorAll('.settings-back-btn').forEach((btn) => {
 settingsEditProfileBtn.addEventListener('click', openProfileEdit);
 settingsCreateProfileBtn.addEventListener('click', openProfileEdit);
 settingsEditCancelBtn.addEventListener('click', showSettingsProfileState);
-settingsChooseImageBtn.addEventListener('click', () => {
-  triggerIconUpload((url) => {
-    settingsEditIcon = url;
-    updateSettingsIconPreview();
-  });
-});
-// 画像未設定の間はフォールバック表示が名前の頭文字なので、名前を打つたびにプレビューへ反映する。
-settingsNameInput.addEventListener('input', updateSettingsIconPreview);
 settingsEditSaveBtn.addEventListener('click', () => {
   const name = settingsNameInput.value.trim();
   if (!name) {
@@ -607,24 +595,38 @@ deleteAccountOkBtn.addEventListener('click', () => {
   });
 });
 
-// ---- アイコン画像の拡大表示・削除（プロフィール編集中、アイコンをタップすると開く） ----
+// ---- アイコン画像の設定・拡大表示・削除（プロフィール編集中、アイコンをタップすると開く） ----
+// 画像未設定時はタップで直接ファイル選択、設定済み時はタップで拡大表示（そこから変更・削除）。
 const iconPreviewOverlay = document.getElementById('icon-preview-overlay');
 const iconPreviewCloseBtn = document.getElementById('icon-preview-close-btn');
 const iconPreviewImage = document.getElementById('icon-preview-image');
+const iconPreviewChangeBtn = document.getElementById('icon-preview-change-btn');
 const iconPreviewDeleteBtn = document.getElementById('icon-preview-delete-btn');
 const iconDeleteConfirmOverlay = document.getElementById('icon-delete-confirm-overlay');
 const iconDeleteCancelBtn = document.getElementById('icon-delete-cancel-btn');
 const iconDeleteOkBtn = document.getElementById('icon-delete-ok-btn');
 
 settingsIconPreview.addEventListener('click', () => {
-  // 画像未設定（名前の頭文字のフォールバック表示）のときは拡大表示するものがない。
   const isImage = typeof settingsEditIcon === 'string' && /^https?:\/\//.test(settingsEditIcon);
-  if (!isImage) return;
+  if (!isImage) {
+    triggerIconUpload((url) => {
+      settingsEditIcon = url;
+      updateSettingsIconPreview();
+    });
+    return;
+  }
   iconPreviewImage.style.backgroundImage = `url("${settingsEditIcon}")`;
   iconPreviewOverlay.classList.remove('hidden');
 });
 iconPreviewCloseBtn.addEventListener('click', () => {
   iconPreviewOverlay.classList.add('hidden');
+});
+iconPreviewChangeBtn.addEventListener('click', () => {
+  iconPreviewOverlay.classList.add('hidden');
+  triggerIconUpload((url) => {
+    settingsEditIcon = url;
+    updateSettingsIconPreview();
+  });
 });
 iconPreviewDeleteBtn.addEventListener('click', () => {
   iconPreviewOverlay.classList.add('hidden');

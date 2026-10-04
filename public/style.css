@@ -199,6 +199,11 @@ h1 {
   gap: 18px;
 }
 
+.icon-edit-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
 /* .player-avatarの40px指定が後ろで定義されており、クラス単体のセレクタ同士では
    後勝ちで打ち消されてしまうため、IDを足して優先度を上げている。 */
 #settings-icon-preview.icon-edit-preview {
@@ -206,14 +211,6 @@ h1 {
   height: 104px;
   font-size: 2.8rem;
   flex-shrink: 0;
-}
-
-/* 「画像を選ぶ」ボタンは共通の.settings-text-btn(編集・アカウント作成するボタン等と共用)
-   より一回り大きく強調する。他の.settings-text-btn利用箇所には影響させない。 */
-.icon-edit-row .settings-text-btn {
-  padding: 14px 22px;
-  font-size: 1rem;
-  border-radius: 14px;
 }
 
 
@@ -1332,6 +1329,12 @@ input:disabled {
   background-color: var(--color-primary);
   background-size: cover;
   background-position: center;
+}
+
+.icon-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
 }
 
 .icon-preview-card .settings-danger-link {

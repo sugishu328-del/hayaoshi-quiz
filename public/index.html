@@ -97,10 +97,9 @@
         </div>
 
         <div id="settings-profile-edit" class="settings-profile-edit hidden">
-          <input id="settings-name-input" type="text" placeholder="なまえを入力" maxlength="20" />
           <div class="icon-edit-row">
             <button type="button" id="settings-icon-preview" class="player-avatar icon-edit-preview"></button>
-            <button type="button" id="settings-choose-image-btn" class="settings-text-btn">アイコンを設定する</button>
+            <input id="settings-name-input" type="text" placeholder="なまえを入力" maxlength="20" />
           </div>
           <input type="file" id="icon-upload-input" accept="image/*" class="hidden" />
           <div class="settings-edit-actions">
@@ -159,7 +158,10 @@
   <div class="buzz-card icon-preview-card">
     <button type="button" id="icon-preview-close-btn" class="settings-close-btn icon-preview-close-btn" aria-label="閉じる">✕</button>
     <div id="icon-preview-image" class="icon-preview-image"></div>
-    <button type="button" id="icon-preview-delete-btn" class="settings-danger-link">画像を削除</button>
+    <div class="icon-preview-actions">
+      <button type="button" id="icon-preview-change-btn" class="settings-text-btn">変更する</button>
+      <button type="button" id="icon-preview-delete-btn" class="settings-danger-link">画像を削除</button>
+    </div>
   </div>
 </div>
 
