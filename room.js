@@ -114,12 +114,15 @@ class Room {
   cancelCpuLetterTimer() { if (this.cpuLetterTimer) { clearTimeout(this.cpuLetterTimer); this.cpuLetterTimer = null; } }
   cancelNoBuzzTimer() { if (this.noBuzzTimer) { clearTimeout(this.noBuzzTimer); this.noBuzzTimer = null; } this.noBuzzDeadline = null; }
 
-  // 早押しされてopenフェーズが中断される瞬間に呼ぶ。ここまでに問題文が表示された時間を
-  // questionRevealedMsに積み増しておき、後でopenに戻ったときに続きから計算できるようにする。
+  // 早押しされてopenフェーズが中断される瞬間に呼ぶ。ここまでに経過したopenフェーズの時間
+  // （問題文タイプライター表示中かどうかを問わず）をquestionRevealedMsに積み増しておき、
+  // 後でopenに戻ったときに続きから計算できるようにする。タイプライター表示が終わった後の
+  // 「誰も押さないまま諦めるまでの猶予時間」の消化分もここに含める必要がある
+  // （以前はtotalTypingMsで打ち切っていたため、誤答のたびに猶予時間が丸ごとリセットされる
+  // 不具合があった）。
   pauseQuestionTyping() {
     if (this.questionTypingStartedAt !== null) {
-      const totalTypingMs = this.question.length * TYPEWRITER_SPEED_MS;
-      this.questionRevealedMs = Math.min(totalTypingMs, this.questionRevealedMs + (Date.now() - this.questionTypingStartedAt));
+      this.questionRevealedMs += (Date.now() - this.questionTypingStartedAt);
       this.questionTypingStartedAt = null;
     }
   }
@@ -194,22 +197,24 @@ class Room {
     }
   }
 
-  // 問題文の表示（タイプライター）の残りが終わるまでの時間 + NO_BUZZ_TIMEOUT_MS 待ってから
-  // 誰も押さなければ諦めて次の問題へ。誤答で中断されていた場合は、その時点までの
-  // 表示済み時間（questionRevealedMs）を差し引いた残りだけ待つ。
+  // 「問題文の表示（タイプライター）+ 誰も押さないまま諦めるまでの猶予(NO_BUZZ_TIMEOUT_MS)」
+  // を1本の連続した持ち時間とみなし、その残りだけ待ってから諦めて次の問題へ進む。誤答で
+  // 中断されていた場合は、タイプライター表示中・猶予時間中のどちらで中断されたかに関わらず、
+  // これまでに経過した時間（questionRevealedMs）を差し引いた残りだけ待つ（誤答のたびに
+  // 猶予時間がまるごとリセットされてしまわないように）。
   scheduleNoBuzzTimer() {
     this.cancelNoBuzzTimer();
     const roundQuestion = this.question;
     const totalTypingMs = roundQuestion.length * TYPEWRITER_SPEED_MS;
-    const remainingTypingMs = Math.max(0, totalTypingMs - this.questionRevealedMs);
+    const totalBudgetMs = totalTypingMs + NO_BUZZ_TIMEOUT_MS;
+    const remainingBudgetMs = Math.max(0, totalBudgetMs - this.questionRevealedMs);
     this.questionTypingStartedAt = Date.now();
-    const totalDelay = remainingTypingMs + NO_BUZZ_TIMEOUT_MS;
-    this.noBuzzDeadline = Date.now() + totalDelay;
+    this.noBuzzDeadline = Date.now() + remainingBudgetMs;
     this.noBuzzTimer = setTimeout(() => {
       this.noBuzzTimer = null;
       if (!this.started || this.phase !== 'open' || this.question !== roundQuestion) return;
       this.enterReveal();
-    }, totalDelay);
+    }, remainingBudgetMs);
   }
 
   scheduleLetterTimeout(timeoutMs) {
