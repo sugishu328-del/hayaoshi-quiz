@@ -439,6 +439,8 @@ let settingsEditIcon = null;
 // 画像未設定ならゲストと同じ「名前の頭文字」表示になる（setAvatarContentのフォールバック）。
 function updateSettingsIconPreview() {
   setAvatarContent(settingsIconPreview, settingsNameInput.value, settingsEditIcon);
+  const hasImage = typeof settingsEditIcon === 'string' && /^https?:\/\//.test(settingsEditIcon);
+  settingsChooseImageBtn.textContent = hasImage ? 'アイコンを変更する' : 'アイコンを設定する';
 }
 
 // プロフィールの有無に応じて「表示」か「未作成」のどちらかを見せる（編集フォームは閉じる）。
@@ -1010,6 +1012,7 @@ function updateLetterCountdown(active, key, isFirstLetter) {
 // プロフィールでアイコン（絵文字）を設定していればそれを、無ければ名前の頭文字を表示する。
 function setAvatarContent(el, name, icon) {
   const isImage = typeof icon === 'string' && /^https?:\/\//.test(icon);
+  el.classList.remove('has-image', 'icon-fallback');
   if (isImage) {
     el.textContent = '';
     el.style.backgroundImage = `url("${icon}")`;
@@ -1017,8 +1020,12 @@ function setAvatarContent(el, name, icon) {
     return;
   }
   el.style.backgroundImage = '';
-  el.classList.remove('has-image');
-  el.textContent = icon || (name || '?').slice(0, 1);
+  if (icon) {
+    el.textContent = icon;
+  } else {
+    el.textContent = '';
+    el.classList.add('icon-fallback');
+  }
 }
 
 function renderPlayerList(container, players, buzzedId, showReactionFor, reactionMs) {
