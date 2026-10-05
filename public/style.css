@@ -785,6 +785,17 @@ input:disabled {
   color: var(--color-text-muted);
 }
 
+.player-wrong-remaining {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--color-text-faint);
+}
+
+.player-wrong-remaining.low {
+  color: var(--color-danger-dark);
+  font-weight: bold;
+}
+
 /* アイコンの右上に重ねて表示する（カードの高さが変わって参加者バー全体の位置が
    ずれてしまわないよう、通常のレイアウトの流れから外して絶対配置にする）。 */
 .reaction-badge {

@@ -1114,6 +1114,16 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
       score.textContent = `${p.score}点`;
       li.appendChild(score);
 
+      // 誤答上限が設定されている（0=無制限ではない）間だけ、残り誤答可能回数を表示する。
+      if (currentWrongLimit > 0) {
+        const wrongRemaining = document.createElement('span');
+        wrongRemaining.className = 'player-wrong-remaining';
+        const left = Math.max(0, currentWrongLimit - (p.wrongCount || 0));
+        wrongRemaining.classList.toggle('low', left <= 1);
+        wrongRemaining.textContent = `残${left}`;
+        li.appendChild(wrongRemaining);
+      }
+
       // 反応時間バッジはアイコンの右上に重ねて表示する（カード内の行として追加すると
       // カードの高さが変わり、バー全体の位置がガタつくため、アイコンに乗せる形にする）。
       if (showReactionFor && p.id === showReactionFor && typeof reactionMs === 'number') {
@@ -1191,6 +1201,7 @@ let latestRevealedAnswer = null;
 // 更新できるよう、直近のstateを覚えておく。
 let currentPlayers = [];
 let currentBuzzedId = null;
+let currentWrongLimit = 0;
 let latestRevealedInput = null;
 let lastSfxPhase = null; // 出題・正解・不正解の効果音を、フェーズが切り替わった瞬間だけ鳴らすための直前値
 let sfxPhaseInitialized = false; // 参加/再接続した直後の最初のstateでは、進行中のフェーズを誤って「切り替わった」と判定しないようにする
@@ -1327,6 +1338,7 @@ socket.on('state', (state) => {
   const showReactionFor = (phase === 'buzzed' || phase === 'wrong' || phase === 'correct') ? lastBuzzerId : null;
   currentPlayers = players;
   currentBuzzedId = buzzedId;
+  currentWrongLimit = wrongLimit;
   renderPlayerList(playerList, players, buzzedId, showReactionFor, lastBuzzerReactionMs);
 
   setupPanel.classList.toggle('hidden', started);

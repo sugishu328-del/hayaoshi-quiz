@@ -146,6 +146,7 @@ class Room {
       name: p.name,
       icon: p.icon || null,
       score: p.score,
+      wrongCount: p.wrongCount || 0,
       // 失格(disqualified)は「今の問題だけ押せない(lockedOut)」と見た目・扱いを共通化する
       // （どちらも「今は押せない」という点で表示上は同じでよいため、専用の表示は作らない）。
       // lockedOutは毎問クリアされるが、disqualifiedはゲーム終了までクリアされない。
