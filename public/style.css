@@ -1340,7 +1340,7 @@ input:disabled {
 
 .icon-preview-card .settings-danger-link {
   align-self: center;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   padding: 8px 14px;
   border-radius: 10px;
   background: var(--color-danger-light);
