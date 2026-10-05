@@ -244,6 +244,35 @@ if (iconUploadInput) {
   });
 }
 
+// アイコン画像はbackground-imageで表示しているが、これは一度読み込みに失敗すると
+// ブラウザが自分からは再試行してくれない（タブを開いた直後の一瞬だけネットワークが
+// 不安定だった場合などに、ずっと読み込めないまま＝背景色だけが見える状態になりうる、
+// 2026-10-05に実際に報告された不具合）。そのため読み込み成功をImage()で確認してから
+// background-imageを反映し、失敗時は自動で数回リトライするようにする。
+// 一度成功が確認できたURLはキャッシュし、以後は即座に反映する（毎回の状態更新で
+// 同じ画像を何度も読み込み直さないように）。
+// setAvatarContentより前（initProfileUi()がページ読み込み直後に呼ぶため）に定義する必要がある。
+const avatarImageOkCache = new Set();
+const avatarLoadToken = new WeakMap(); // 要素ごとに「今読み込もうとしているアイコン」の世代を持たせ、
+// 読み込み中に別のアイコンへ切り替わった場合に古い結果を適用してしまわないようにする。
+
+function loadImageWithRetry(url, maxRetries, delayMs) {
+  return new Promise((resolve) => {
+    let attempt = 0;
+    function tryLoad() {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => {
+        attempt++;
+        if (attempt > maxRetries) resolve(false);
+        else setTimeout(tryLoad, delayMs);
+      };
+      img.src = url;
+    }
+    tryLoad();
+  });
+}
+
 // 保存済みプロフィール（アカウント作成済み）があればアイコン+名前を表示し、無ければ
 // 「ゲスト」を表示する。参加画面上部の見た目はどちらも同じ構造（アイコン+名前+設定ボタン）。
 function initProfileUi() {
@@ -1019,8 +1048,25 @@ function setAvatarContent(el, name, icon) {
   el.classList.remove('has-image', 'icon-fallback');
   if (isImage) {
     el.textContent = '';
-    el.style.backgroundImage = `url("${icon}")`;
-    el.classList.add('has-image');
+    if (avatarImageOkCache.has(icon)) {
+      el.style.backgroundImage = `url("${icon}")`;
+      el.classList.add('has-image');
+      return;
+    }
+    // 読み込み確認が取れるまでは未設定時と同じフォールバック表示にしておき、
+    // 確認でき次第切り替える（読み込み中に空白/背景色だけになるのを避ける）。
+    el.classList.add('icon-fallback');
+    const token = (avatarLoadToken.get(el) || 0) + 1;
+    avatarLoadToken.set(el, token);
+    loadImageWithRetry(icon, 3, 800).then((ok) => {
+      if (avatarLoadToken.get(el) !== token) return; // 待っている間に別のアイコンへ切り替わっていた
+      if (ok) {
+        avatarImageOkCache.add(icon);
+        el.classList.remove('icon-fallback');
+        el.style.backgroundImage = `url("${icon}")`;
+        el.classList.add('has-image');
+      }
+    });
     return;
   }
   el.style.backgroundImage = '';
