@@ -181,6 +181,7 @@
     <span id="question-number-badge" class="question-number-badge hidden"></span>
     <div id="top-bar-right" class="top-bar-right">
       <button id="rule-check-btn" class="rule-check-btn hidden">📋 ルール</button>
+      <button id="pause-btn" class="rule-check-btn hidden" title="一時停止" aria-label="一時停止">⏸</button>
       <button id="end-game-btn" class="hidden">終了</button>
     </div>
   </div>
@@ -319,6 +320,14 @@
       <p class="game-over-title">ゲーム終了！</p>
       <ul id="game-over-ranking" class="game-over-ranking"></ul>
       <button id="game-over-close-btn" class="end-confirm-ok">閉じる</button>
+    </div>
+  </div>
+
+  <div id="pause-overlay" class="buzz-overlay hidden">
+    <div class="buzz-card pause-card">
+      <p class="pause-title">⏸ 一時停止中</p>
+      <p id="pause-host-note" class="pause-note hidden">ホストが再開するまでお待ちください</p>
+      <button id="pause-resume-btn" class="end-confirm-ok hidden">再開する</button>
     </div>
   </div>
 

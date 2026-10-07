@@ -76,6 +76,8 @@ class Room {
     this.cpuMistakeAt = -1; // 何文字目（ガード対象文字のうち何番目）でわざと間違えるか
     this.cpuStepIndex = 0;
     this.isFirstLetterPick = true; // 早押し後、最初の1文字目だけ制限時間を長くする
+
+    this.paused = false; // ホストが一時停止中か（trueの間はタイマーを一切動かさない）
   }
 
   drawNextQuestion(difficulty) {
@@ -163,6 +165,7 @@ class Room {
       wrongPenalty: this.wrongPenalty,
       wrongLimit: this.wrongLimit,
       phase: this.phase,
+      paused: this.paused,
       question: this.question,
       questionNumber: this.questionNumber,
       isTraining: this.isTraining,
@@ -265,20 +268,32 @@ class Room {
     this.letterChoices = [];
     this.phase = 'correct';
     this.broadcastState();
+    this.scheduleCorrectPhaseAdvance();
+  }
+
+  // 'correct'フェーズ→'correctReveal'フェーズへの遷移タイマー。一時停止からの再開時にも
+  // （スコア加算などをやり直さずに）このタイマーだけを掛け直せるよう分離してある。
+  scheduleCorrectPhaseAdvance() {
     this.correctTimer = setTimeout(() => {
       this.correctTimer = null;
       if (!this.started) return;
       this.phase = 'correctReveal';
       this.broadcastState();
-      const alreadyShownChars = Math.round(this.questionRevealedMs / TYPEWRITER_SPEED_MS);
-      const remainingChars = Math.max(0, this.question.length - alreadyShownChars);
-      const fastTypingMs = remainingChars * CORRECT_REVEAL_SPEED_MS;
-      this.advanceTimer = setTimeout(() => {
-        this.advanceTimer = null;
-        if (!this.started) return;
-        this.drawAndOpenNextQuestion();
-      }, fastTypingMs + POST_CORRECT_REVEAL_DELAY_MS);
+      this.scheduleCorrectRevealAdvance();
     }, CORRECT_ANSWER_DELAY_MS);
+  }
+
+  // 'correctReveal'フェーズ中（誤答で止まっていた問題文を一気に表示しきる演出）から
+  // 次の問題を出すまでのタイマー。同じ理由でpause/resumeから単独で掛け直せるようにしてある。
+  scheduleCorrectRevealAdvance() {
+    const alreadyShownChars = Math.round(this.questionRevealedMs / TYPEWRITER_SPEED_MS);
+    const remainingChars = Math.max(0, this.question.length - alreadyShownChars);
+    const fastTypingMs = remainingChars * CORRECT_REVEAL_SPEED_MS;
+    this.advanceTimer = setTimeout(() => {
+      this.advanceTimer = null;
+      if (!this.started) return;
+      this.drawAndOpenNextQuestion();
+    }, fastTypingMs + POST_CORRECT_REVEAL_DELAY_MS);
   }
 
   resolveLetterChoice(choice) {
@@ -361,6 +376,11 @@ class Room {
     this.letterChoices = [];
     this.phase = 'wrong';
     this.broadcastState();
+    this.scheduleWrongAdvance();
+  }
+
+  // 'wrong'フェーズ（✕不正解の表示中）から次に進むまでのタイマー。
+  scheduleWrongAdvance() {
     this.wrongTimer = setTimeout(() => {
       this.wrongTimer = null;
       this.proceedAfterWrong();
@@ -404,6 +424,11 @@ class Room {
     this.resolvedCount = 0;
     this.letterChoices = [];
     this.broadcastState();
+    this.scheduleRevealAdvance();
+  }
+
+  // 'reveal'フェーズ（誰も押さなかった／全員誤答した後の正解発表）から次の問題を出すまでのタイマー。
+  scheduleRevealAdvance() {
     this.advanceTimer = setTimeout(() => {
       this.advanceTimer = null;
       if (!this.started) return;
@@ -453,6 +478,11 @@ class Room {
     this.lockedOut.clear();
     this.phase = 'announce';
     this.broadcastState();
+    this.scheduleAnnounceAdvance();
+  }
+
+  // 'announce'フェーズ（「第N問」の一瞬表示）から実際に出題(open)するまでのタイマー。
+  scheduleAnnounceAdvance() {
     this.advanceTimer = setTimeout(() => {
       this.advanceTimer = null;
       if (!this.started) return;
@@ -462,6 +492,57 @@ class Room {
       this.broadcastState();
       this.scheduleCpuBuzzIfNeeded();
     }, ANNOUNCE_DELAY_MS);
+  }
+
+  // ホストが一時停止したとき。進行中のタイマーをすべて止める。'open'フェーズ中なら、
+  // 誤答で中断されたときと同じ仕組み(pauseQuestionTyping)で経過時間を貯めておき、
+  // 再開時に残りの持ち時間だけを再計算できるようにする。
+  pause() {
+    if (!this.started || this.paused || this.phase === 'gameOver') return false;
+    this.cancelAllTimers();
+    if (this.phase === 'open') this.pauseQuestionTyping();
+    this.paused = true;
+    this.broadcastState();
+    return true;
+  }
+
+  // ホストが再開したとき。今のフェーズに応じて「次に進むためのタイマー」だけを掛け直す。
+  // 'open'フェーズの残り時間はpause()で貯めたquestionRevealedMsを使って正確に再計算される。
+  // それ以外の短い演出フェーズ(wrong/correct/correctReveal/reveal/announce)は、公平性に
+  // 関わらないため残り時間を厳密に計算せず、フルの時間で掛け直す（選んでいた途中の文字
+  // (resolvedCount)やCPUの正誤計画(cpuWillSucceed等)はどのフェーズでも変更しない）。
+  resume() {
+    if (!this.paused) return false;
+    this.paused = false;
+    switch (this.phase) {
+      case 'open':
+        this.scheduleNoBuzzTimer();
+        this.scheduleCpuBuzzIfNeeded();
+        break;
+      case 'buzzed':
+        this.scheduleLetterTimeout(this.isFirstLetterPick ? FIRST_LETTER_TIMEOUT_MS : LETTER_TIMEOUT_MS);
+        if (this.buzzedId === CPU_ID) this.scheduleCpuLetterPick();
+        break;
+      case 'wrong':
+        this.scheduleWrongAdvance();
+        break;
+      case 'correct':
+        this.scheduleCorrectPhaseAdvance();
+        break;
+      case 'correctReveal':
+        this.scheduleCorrectRevealAdvance();
+        break;
+      case 'reveal':
+        this.scheduleRevealAdvance();
+        break;
+      case 'announce':
+        this.scheduleAnnounceAdvance();
+        break;
+      default:
+        break;
+    }
+    this.broadcastState();
+    return true;
   }
 }
 

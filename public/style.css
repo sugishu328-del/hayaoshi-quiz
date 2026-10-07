@@ -722,6 +722,7 @@ input:disabled {
 /* 参加者ごとのカード。アイコン（今は名前の頭文字、将来的にカスタムアイコン用のスペース）を
    上に、名前・点数を下に並べる縦並びレイアウト。 */
 .player-list li {
+  position: relative;
   flex: 0 0 auto;
   width: 80px;
   cursor: pointer;
@@ -785,23 +786,47 @@ input:disabled {
   color: var(--color-text-muted);
 }
 
+/* 残り誤答可能回数はカードの右上に、ハート+数字のバッジとして重ねて表示する
+   （通常のレイアウトの流れからは外し、絶対配置にする。カードの高さには影響させない）。 */
 .player-wrong-remaining {
-  flex-shrink: 0;
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-raised-sm);
+  font-size: 0.65rem;
+  font-weight: bold;
+  color: var(--color-text-muted);
+}
+
+.player-wrong-remaining-heart {
+  color: var(--color-danger);
   font-size: 0.7rem;
-  color: var(--color-text-faint);
 }
 
 .player-wrong-remaining.low {
+  background: var(--color-danger-light);
+  border-color: var(--color-danger);
   color: var(--color-danger-dark);
-  font-weight: bold;
 }
 
-/* アイコンの右上に重ねて表示する（カードの高さが変わって参加者バー全体の位置が
-   ずれてしまわないよう、通常のレイアウトの流れから外して絶対配置にする）。 */
+.player-wrong-remaining.low .player-wrong-remaining-heart {
+  color: var(--color-danger-dark);
+}
+
+/* アイコンの左上に重ねて表示する（カードの高さが変わって参加者バー全体の位置が
+   ずれてしまわないよう、通常のレイアウトの流れから外して絶対配置にする）。
+   右上は残り誤答可能回数のハートバッジが使っているため、ここは左上にして重ならないようにする。 */
 .reaction-badge {
   position: absolute;
   top: -6px;
-  right: -10px;
+  left: -10px;
   padding: 1px 4px;
   border-radius: 6px;
   background: var(--color-accent);
@@ -1052,6 +1077,27 @@ input:disabled {
   font-size: 0.7rem;
   font-weight: bold;
   background: var(--color-neutral-btn);
+}
+
+/* 一時停止中の全画面オーバーレイ */
+.pause-card {
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  margin-top: 0;
+}
+
+.pause-title {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--color-primary-dark);
+}
+
+.pause-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-faint);
 }
 
 .back-btn {

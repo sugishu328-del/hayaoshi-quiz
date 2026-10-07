@@ -3,7 +3,7 @@ const path = require('path');
 const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-const { questionBanks, DIFFICULTIES, CPU_ID, DISCONNECT_GRACE_MS, ICON_CHOICES } = require('./gameData');
+const { questionBanks, DIFFICULTIES, CPU_ID, DISCONNECT_GRACE_MS, PAUSED_DISCONNECT_GRACE_MS, ICON_CHOICES } = require('./gameData');
 const Room = require('./room');
 const { upsertPlayer, submitReport, addBlock, removeBlock, getBlockList, deleteAccount, uploadIcon, deleteIcon } = require('./supabase');
 
@@ -84,8 +84,14 @@ function getRoomForSocket(socket) {
 
 // hostIdが設定されている部屋（フレンド部屋）では、そのclientId以外は設定操作を拒否する。
 // hostIdが未設定（何らかの理由で不在）の場合は、誰も操作できなくならないよう全員に開放する。
+// さらに、今のホストが切断中（5分の猶予中でまだ部屋には残っているが繋がっていない）の間は、
+// 繋がっている人なら誰でも代わりに操作できるようにする（一時停止がホスト待ちで固まらないように
+// するための2026-10-07の変更）。ホストが再接続すれば、connectedがtrueに戻るので自動的に
+// 操作権限もホスト本人だけに戻る（恒久的な引き継ぎはしない）。
 function isHost(room, socket) {
-  return !room.hostId || room.hostId === socket.data.clientId;
+  if (!room.hostId || room.hostId === socket.data.clientId) return true;
+  const hostPlayer = room.players.get(room.hostId);
+  return !hostPlayer || !hostPlayer.connected;
 }
 
 // ホストが部屋からいなくなったら、残っている中で一番早く入室した人（Mapの挿入順で先頭）に
@@ -126,6 +132,13 @@ function removePlayer(room, clientId) {
 // broadcastStateするだけでよい。
 function handlePlayerDeparture(room, wasBuzzed) {
   if (!room.started) {
+    room.broadcastState();
+    return;
+  }
+  // 一時停止中はタイマーが何も動いていないので、進行を自動で進めたりしない
+  // （enterReveal()などを呼ぶと、一時停止を勝手に解除したことになってしまう）。
+  // 再開はホストのresume()操作を待つ。
+  if (room.paused) {
     room.broadcastState();
     return;
   }
@@ -354,12 +367,28 @@ io.on('connection', (socket) => {
     room.drawAndOpenNextQuestion();
   });
 
+  // 一時停止・再開はホストのみ操作できる（設定変更と同じ権限モデル）。
+  onLimited('game:pause', () => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    if (!room.players.has(socket.data.clientId) || !isHost(room, socket)) return;
+    room.pause();
+  });
+
+  onLimited('game:resume', () => {
+    const room = getRoomForSocket(socket);
+    if (!room) return;
+    if (!room.players.has(socket.data.clientId) || !isHost(room, socket)) return;
+    room.resume();
+  });
+
   onLimited('game:end', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     if (!room.players.has(socket.data.clientId) || !room.started || !isHost(room, socket)) return;
     room.cancelAllTimers();
     room.started = false;
+    room.paused = false;
     room.phase = 'open';
     room.question = '';
     room.questionNumber = 0;
@@ -390,7 +419,7 @@ io.on('connection', (socket) => {
   onLimited('player:buzz', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
-    if (!room.started || room.phase !== 'open') return;
+    if (!room.started || room.paused || room.phase !== 'open') return;
     const clientId = socket.data.clientId;
     if (!clientId || !room.players.has(clientId)) return;
     if (room.lockedOut.has(clientId) || room.disqualified.has(clientId)) return;
@@ -410,7 +439,7 @@ io.on('connection', (socket) => {
     const room = getRoomForSocket(socket);
     if (!room) return;
     const { choice } = payload || {};
-    if (!room.started || room.phase !== 'buzzed' || socket.data.clientId !== room.buzzedId) return;
+    if (!room.started || room.paused || room.phase !== 'buzzed' || socket.data.clientId !== room.buzzedId) return;
     if (typeof choice !== 'string' || !room.letterChoices.includes(choice)) return;
     room.resolveLetterChoice(choice);
   });
@@ -530,17 +559,20 @@ io.on('connection', (socket) => {
 
     const wasBuzzed = room.buzzedId === clientId;
 
-    // プレイヤーはすぐには削除せず、DISCONNECT_GRACE_MSだけ猶予を持たせる。
-    // その間に同じclientIdで再参加（join）すればスコアを維持したまま復帰できる。
+    // プレイヤーはすぐには削除せず、猶予を持たせる。その間に同じclientIdで再参加（join）すれば
+    // スコアを維持したまま復帰できる。一時停止中に切断した場合だけは、食事休憩・充電探しなど
+    // 長めの中断を想定してPAUSED_DISCONNECT_GRACE_MSを使う（2026-10-07追加。通常プレイ中の
+    // 切断はすぐ復帰してほしい場面が多いため、今まで通り短い方のままにする）。
     const p = room.players.get(clientId);
     if (p) {
       p.connected = false;
+      const graceMs = room.paused ? PAUSED_DISCONNECT_GRACE_MS : DISCONNECT_GRACE_MS;
       p.disconnectTimer = setTimeout(() => {
         room.players.delete(clientId);
         reassignHostIfNeeded(room, clientId);
         room.broadcastState();
         destroyRoomIfEmpty(room);
-      }, DISCONNECT_GRACE_MS);
+      }, graceMs);
     }
 
     // connectedPlayerCount()が0のときはlockedOut.size(0以上)が必ずそれ以上になるので、

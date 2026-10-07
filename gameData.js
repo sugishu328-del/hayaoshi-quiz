@@ -132,6 +132,7 @@ const ICON_CHOICES = ['🦊', '🐱', '🐶', '🐻', '🦁', '🐰', '🐼', '�
 
 // ---- 部屋(Room)共通のタイミング定数 ----
 const DISCONNECT_GRACE_MS = 300000; // この時間内に同じclientIdで再参加すればスコアを維持したまま復帰できる（スマホの画面ロック・スリープで数分切れることがあるため、60秒では短すぎた。2026-10-04に60秒→5分へ延長）
+const PAUSED_DISCONNECT_GRACE_MS = 1800000; // 一時停止中に切断した場合だけはこちらを使う（食事休憩・充電探し等、通常の切断より長い中断を想定。2026-10-07追加）
 const TYPEWRITER_SPEED_MS = 140; // client.jsの問題文タイプライター表示と同じ速さ（表示完了タイミングの計算に使う）
 const CORRECT_REVEAL_SPEED_MS = 47; // 正解後、残りの問題文を続きから表示するときの速さ（client.jsと同じ値）
 const NO_BUZZ_TIMEOUT_MS = 5000; // 問題文が表示され終わってから、誰も押さないまま経過したら諦めて次の問題へ
@@ -154,6 +155,7 @@ module.exports = {
   CPU_ACCURACY,
   ICON_CHOICES,
   DISCONNECT_GRACE_MS,
+  PAUSED_DISCONNECT_GRACE_MS,
   TYPEWRITER_SPEED_MS,
   CORRECT_REVEAL_SPEED_MS,
   NO_BUZZ_TIMEOUT_MS,

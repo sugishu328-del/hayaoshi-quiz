@@ -769,6 +769,15 @@ ruleCheckOverlay.addEventListener('click', (e) => {
   if (e.target === ruleCheckOverlay) ruleCheckOverlay.classList.add('hidden');
 });
 
+// ---- 一時停止（ホストのみ操作できる。誰かが席を外すときなどに使う） ----
+const pauseBtn = document.getElementById('pause-btn');
+const pauseOverlay = document.getElementById('pause-overlay');
+const pauseHostNote = document.getElementById('pause-host-note');
+const pauseResumeBtn = document.getElementById('pause-resume-btn');
+
+pauseBtn.addEventListener('click', () => socket.emit('game:pause'));
+pauseResumeBtn.addEventListener('click', () => socket.emit('game:resume'));
+
 // 「ルール変更」＝進行中のゲームを終了して難易度設定画面に戻る（既存のgame:endの再利用）。
 // 誤タップで即リセットされないよう、終了ボタンと同様に確認ポップアップを挟む。
 ruleChangeBtn.addEventListener('click', () => {
@@ -1114,13 +1123,14 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
       score.textContent = `${p.score}点`;
       li.appendChild(score);
 
-      // 誤答上限が設定されている（0=無制限ではない）間だけ、残り誤答可能回数を表示する。
+      // 誤答上限が設定されている（0=無制限ではない）間だけ、残り誤答可能回数をカード右上に
+      // ハート+数字のバッジで表示する（カードの通常の縦並びレイアウトからは外し、絶対配置にする）。
       if (currentWrongLimit > 0) {
         const wrongRemaining = document.createElement('span');
         wrongRemaining.className = 'player-wrong-remaining';
         const left = Math.max(0, currentWrongLimit - (p.wrongCount || 0));
         wrongRemaining.classList.toggle('low', left <= 1);
-        wrongRemaining.textContent = `残${left}`;
+        wrongRemaining.innerHTML = `<span class="player-wrong-remaining-heart">♥</span>${left}`;
         li.appendChild(wrongRemaining);
       }
 
@@ -1273,6 +1283,7 @@ socket.on('state', (state) => {
     wrongPenalty,
     wrongLimit,
     phase,
+    paused,
     question,
     questionNumber,
     isTraining,
@@ -1346,6 +1357,7 @@ socket.on('state', (state) => {
   questionNumberBadge.classList.toggle('hidden', !started);
   endGameBtn.classList.toggle('hidden', !started);
   ruleCheckBtn.classList.toggle('hidden', !started);
+  pauseBtn.classList.toggle('hidden', !started || paused);
   ruleCheckDifficultyEl.textContent = DIFFICULTY_LABELS[difficulty] || difficulty;
   ruleCheckWinscoreEl.textContent = winScore > 0 ? `${winScore}点` : '制限なし';
   ruleCheckQlimitEl.textContent = questionLimit > 0 ? `${questionLimit}問` : '制限なし';
@@ -1377,8 +1389,13 @@ socket.on('state', (state) => {
     cpuToggle,
     winScoreInput, questionLimitInput, wrongPenaltyInput, wrongLimitInput,
     ...stepButtons,
-    startGameBtn, endGameBtn, ruleChangeBtn,
+    startGameBtn, endGameBtn, ruleChangeBtn, pauseBtn,
   ].forEach((el) => { el.disabled = !amHost; });
+
+  // 一時停止中は全員に専用オーバーレイを見せる（ホストだけ「再開する」ボタンが使える）。
+  pauseOverlay.classList.toggle('hidden', !paused);
+  pauseResumeBtn.classList.toggle('hidden', !amHost);
+  pauseHostNote.classList.toggle('hidden', amHost);
 
   gameOverOverlay.classList.toggle('hidden', phase !== 'gameOver');
   if (phase === 'gameOver') {
@@ -1407,10 +1424,11 @@ socket.on('state', (state) => {
   // 解答の進捗（確定した文字）は全員に見せる。選択肢のボタンは早押しに勝った本人にだけ表示する。
   // 誤答した瞬間（wrong）・正解し終えた瞬間（correct）は、同じポップアップの中身を
   // 「✕不正解」「○正解」表示に切り替える。
-  const showProgress = phase === 'buzzed';
-  const showWrong = phase === 'wrong';
-  const showCorrect = phase === 'correct';
-  const showChoices = phase === 'buzzed' && isSelfBuzzed && letterChoices && letterChoices.length > 0;
+  // 一時停止中は、通常の早押しポップアップ類は表示せず一時停止オーバーレイだけを見せる。
+  const showProgress = phase === 'buzzed' && !paused;
+  const showWrong = phase === 'wrong' && !paused;
+  const showCorrect = phase === 'correct' && !paused;
+  const showChoices = phase === 'buzzed' && !paused && isSelfBuzzed && letterChoices && letterChoices.length > 0;
   buzzOverlay.classList.toggle('hidden', !showProgress && !showWrong && !showCorrect);
   buzzLive.classList.toggle('hidden', !showProgress);
   wrongResult.classList.toggle('hidden', !showWrong);
@@ -1441,5 +1459,5 @@ socket.on('state', (state) => {
   latestRevealedInput = revealedInput;
   tickAnswerRevealLabel();
 
-  buzzBtn.disabled = phase !== 'open' || !me || me.locked;
+  buzzBtn.disabled = phase !== 'open' || paused || !me || me.locked;
 });
