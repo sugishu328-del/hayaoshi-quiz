@@ -589,7 +589,7 @@ function renderSettingsBlockList() {
       socket.emit('block:remove', { clientId, blockedClientId: targetId }, () => {
         blockedPlayers.delete(targetId);
         renderSettingsBlockList();
-        renderPlayerList(playerList, currentPlayers, currentBuzzedId, null, null);
+        renderPlayerList(playerList, currentPlayers, currentBuzzedId, null);
         showToast('ブロックを解除しました');
       });
     });
@@ -952,7 +952,7 @@ playerActionBlockBtn.addEventListener('click', () => {
     socket.emit('block:remove', { clientId, blockedClientId: targetId }, () => {
       blockedPlayers.delete(targetId);
       renderSettingsBlockList();
-      renderPlayerList(playerList, currentPlayers, currentBuzzedId, null, null);
+      renderPlayerList(playerList, currentPlayers, currentBuzzedId, null);
       closePlayerActionOverlays();
       showToast('ブロックを解除しました');
     });
@@ -971,7 +971,7 @@ blockConfirmOkBtn.addEventListener('click', () => {
   socket.emit('block:add', { clientId, blockedClientId: targetId, blockedName: targetName }, () => {
     blockedPlayers.set(targetId, targetName);
     renderSettingsBlockList();
-    renderPlayerList(playerList, currentPlayers, currentBuzzedId, null, null);
+    renderPlayerList(playerList, currentPlayers, currentBuzzedId, null);
     closePlayerActionOverlays();
     showToast('ブロックしました');
   });
@@ -1087,7 +1087,9 @@ function setAvatarContent(el, name, icon) {
   }
 }
 
-function renderPlayerList(container, players, buzzedId, showReactionFor, reactionMs) {
+// reactionMap: 今この問題で早押しした人の反応時間を示す Map<clientId, 反応ms>。
+// 同時に押した人全員分を同時にバッジ表示するため、単一のid/msではなくMapで受け取る。
+function renderPlayerList(container, players, buzzedId, reactionMap) {
   container.innerHTML = '';
   players
     .slice()
@@ -1134,9 +1136,11 @@ function renderPlayerList(container, players, buzzedId, showReactionFor, reactio
         li.appendChild(wrongRemaining);
       }
 
-      // 反応時間バッジはアイコンの右上に重ねて表示する（カード内の行として追加すると
+      // 反応時間バッジはアイコンの左上に重ねて表示する（カード内の行として追加すると
       // カードの高さが変わり、バー全体の位置がガタつくため、アイコンに乗せる形にする）。
-      if (showReactionFor && p.id === showReactionFor && typeof reactionMs === 'number') {
+      // ほぼ同時に押した人がいれば、その全員のアバターに同時に表示する（1人だけではない）。
+      const reactionMs = reactionMap ? reactionMap.get(p.id) : undefined;
+      if (typeof reactionMs === 'number') {
         const badge = document.createElement('span');
         badge.className = 'reaction-badge';
         badge.textContent = `${(reactionMs / 1000).toFixed(2)}秒`;
@@ -1212,7 +1216,19 @@ let latestRevealedAnswer = null;
 let currentPlayers = [];
 let currentBuzzedId = null;
 let currentWrongLimit = 0;
+let currentPaused = false;
 let latestRevealedInput = null;
+// サーバー(gameData.jsのSIMULTANEOUS_BUZZ_WINDOW_MS)と同じ値。誰かが押した直後も、この時間内は
+// 押すボタンを無効化せず押せる状態のままにしておく（早押しボタンはdisabled属性が付くと実機の
+// タップでもクリックイベントが一切発生しないため、即座に無効化すると「ほぼ同時押し」を
+// 検知する前にボタン自体が押せなくなってしまう。2026-10-08追加）。
+const SIMULTANEOUS_BUZZ_WINDOW_MS = 300;
+let buzzWindowOpenedAt = null; // このクライアントが「誰か(自分含む)が押した」のを検知した時刻
+// 自分以外が押したときの「〜が解答中…」オーバーレイも、同じ理由で少し遅らせて表示する。
+// 全画面オーバーレイ(buzz-overlay)は押すボタンの真上を覆ってしまうため、即座に出してしまうと
+// 窓(SIMULTANEOUS_BUZZ_WINDOW_MS)内であっても他の人が物理的にボタンを押せなくなってしまう。
+let currentShowOverlayBase = false; // showProgress || showWrong || showCorrect（直近のstateの値）
+let currentIsSelfBuzzed = false;
 let lastSfxPhase = null; // 出題・正解・不正解の効果音を、フェーズが切り替わった瞬間だけ鳴らすための直前値
 let sfxPhaseInitialized = false; // 参加/再接続した直後の最初のstateでは、進行中のフェーズを誤って「切り替わった」と判定しないようにする
 let revealTimerDeadline = null; // 現在バーがアニメーション対象にしている締切（同じ締切に対して二重にstartしないため）
@@ -1269,10 +1285,38 @@ function tickAnswerRevealLabel() {
   answerRevealLabel.classList.toggle('hidden', !show);
 }
 
+// 早押しボタンの有効/無効をここで一括計算する（state受信時・下のインターバルの両方から呼ぶ）。
+// 誰かが押した直後でも、buzzWindowOpenedAtからSIMULTANEOUS_BUZZ_WINDOW_MSの間は無効化しない
+// （詳しい理由はbuzzWindowOpenedAtの宣言部のコメントを参照）。
+function updateBuzzButtonDisabled() {
+  if (!currentlyStarted) return; // ゲーム未進行中は何もしない（直前の対戦の表示をそのまま残す）
+  const me = currentPlayers.find((p) => p.id === clientId);
+  const withinBuzzWindow = buzzWindowOpenedAt !== null && (Date.now() - buzzWindowOpenedAt) < SIMULTANEOUS_BUZZ_WINDOW_MS;
+  buzzBtn.disabled = currentPaused || !me || me.locked || !(currentPhase === 'open' || withinBuzzWindow);
+}
+
+// 自分が押していないのに、誰か(他の人)が押した直後の窓の間だけ、全画面オーバーレイを
+// あえて隠しておく（押すボタンが隠れて物理的に押せなくなるのを防ぐため）。
+// 自分自身が押した場合は、今まで通りすぐにオーバーレイを表示する。
+function updateBuzzOverlayVisibility() {
+  if (!currentlyStarted) return; // ゲーム未進行中は何もしない（直前の対戦の表示をそのまま残す）
+  const withinGraceWindow = !currentIsSelfBuzzed
+    && buzzWindowOpenedAt !== null
+    && (Date.now() - buzzWindowOpenedAt) < SIMULTANEOUS_BUZZ_WINDOW_MS;
+  buzzOverlay.classList.toggle('hidden', !currentShowOverlayBase || withinGraceWindow);
+}
+
 setInterval(() => {
   tickNoBuzzCountdown();
   tickAnswerRevealLabel();
 }, 250);
+
+// 同時押しの猶予はSIMULTANEOUS_BUZZ_WINDOW_MS(300ms)と短いので、上の250ms間隔のタイマーとは
+// 別に、もう少し短い間隔で早押しボタン・オーバーレイの表示状態だけ再評価する。
+setInterval(() => {
+  updateBuzzButtonDisabled();
+  updateBuzzOverlayVisibility();
+}, 50);
 
 socket.on('state', (state) => {
   const {
@@ -1296,8 +1340,7 @@ socket.on('state', (state) => {
     noBuzzDeadline,
     wrongLetterChoice,
     wrongTimedOut,
-    lastBuzzerId,
-    lastBuzzerReactionMs,
+    buzzQueue,
     isFirstLetterChoice,
     buzzedId,
     buzzedName,
@@ -1309,6 +1352,16 @@ socket.on('state', (state) => {
   currentPhase = started ? phase : null;
   currentNoBuzzDeadline = noBuzzDeadline;
   currentlyStarted = started;
+  currentPaused = paused;
+
+  // 「誰か(自分含む)が押した」ことを検知した時刻を覚えておく（早押しボタンを
+  // どこまで無効化せずにおくかの基準。updateBuzzButtonDisabled参照）。
+  // openに戻ったら（＝次の問題、またはキューを使い切って自由に押し直せる状態）クリアする。
+  if (currentPhase === 'open') {
+    buzzWindowOpenedAt = null;
+  } else if (prevPhase === 'open' && currentPhase !== 'open') {
+    buzzWindowOpenedAt = Date.now();
+  }
 
   // 「第N問」（announce）が表示されるタイミングで、次の問題に備えてバーを満幅に戻す。
   // 前の問題が誰かが押して終わった場合、締切は前後ともnullのままになる（押された時点で
@@ -1345,12 +1398,16 @@ socket.on('state', (state) => {
   }
   lastSfxPhase = currentPhase;
 
-  // 押した人への反応時間バッジは、その結果（○/✕）を表示している間だけ見せる。
-  const showReactionFor = (phase === 'buzzed' || phase === 'wrong' || phase === 'correct') ? lastBuzzerId : null;
+  // 反応時間バッジは、その問題の結果（○/✕）が出ている間だけ見せる。ほぼ同時に押した人が
+  // いれば(buzzQueue)、その全員分を同時に表示する（1人だけに絞らない）。
+  const showReaction = phase === 'buzzed' || phase === 'wrong' || phase === 'correct';
+  const reactionMap = showReaction && Array.isArray(buzzQueue)
+    ? new Map(buzzQueue.map((b) => [b.id, b.reactionMs]))
+    : null;
   currentPlayers = players;
   currentBuzzedId = buzzedId;
   currentWrongLimit = wrongLimit;
-  renderPlayerList(playerList, players, buzzedId, showReactionFor, lastBuzzerReactionMs);
+  renderPlayerList(playerList, players, buzzedId, reactionMap);
 
   setupPanel.classList.toggle('hidden', started);
   playPanel.classList.toggle('hidden', !started);
@@ -1429,7 +1486,9 @@ socket.on('state', (state) => {
   const showWrong = phase === 'wrong' && !paused;
   const showCorrect = phase === 'correct' && !paused;
   const showChoices = phase === 'buzzed' && !paused && isSelfBuzzed && letterChoices && letterChoices.length > 0;
-  buzzOverlay.classList.toggle('hidden', !showProgress && !showWrong && !showCorrect);
+  currentShowOverlayBase = showProgress || showWrong || showCorrect;
+  currentIsSelfBuzzed = isSelfBuzzed;
+  updateBuzzOverlayVisibility();
   buzzLive.classList.toggle('hidden', !showProgress);
   wrongResult.classList.toggle('hidden', !showWrong);
   correctResult.classList.toggle('hidden', !showCorrect);
@@ -1459,5 +1518,5 @@ socket.on('state', (state) => {
   latestRevealedInput = revealedInput;
   tickAnswerRevealLabel();
 
-  buzzBtn.disabled = phase !== 'open' || paused || !me || me.locked;
+  updateBuzzButtonDisabled();
 });

@@ -15,6 +15,7 @@ const {
   WRONG_ANSWER_DELAY_MS,
   POST_CORRECT_REVEAL_DELAY_MS,
   CORRECT_ANSWER_DELAY_MS,
+  SIMULTANEOUS_BUZZ_WINDOW_MS,
 } = require('./gameData');
 
 // 1つの対戦部屋分の状態とロジックをまとめたクラス。server.js側でトレーニング部屋
@@ -64,6 +65,15 @@ class Room {
     this.lastBuzzerReactionMs = null; // 問題文表示開始から押すまでにかかった時間（参加者バーの表示用）
     this.lockedOut = new Set(); // この問題で誤答済みのplayerId
     this.disqualified = new Set(); // 誤答許容回数を超えて失格したplayerId（ゲーム終了までずっと押せない）
+
+    // 「ほぼ同時に押した」グループ。最初の早押しから発生し、SIMULTANEOUS_BUZZ_WINDOW_MSの間だけ
+    // 他の人の早押しも追加で記録する（解答権自体は1人目のまま変えない）。1人目が誤答したら、
+    // ここに記録された次の人へ自動的に解答権を渡す（buzzQueueIndexを参照）。
+    // 各要素は { id: clientId, reactionMs: 問題文表示開始からの経過時間 }。
+    this.buzzQueue = [];
+    this.buzzQueueIndex = 0; // buzzQueueの中で、今どの人が解答中か
+    this.buzzWindowOpen = false; // trueの間は、まだ同時グループへの追加登録を受け付ける
+    this.buzzWindowTimer = null;
 
     this.cpuTimer = null;
     this.cpuLetterTimer = null;
@@ -132,6 +142,7 @@ class Room {
   cancelAdvanceTimer() { if (this.advanceTimer) { clearTimeout(this.advanceTimer); this.advanceTimer = null; } }
   cancelWrongTimer() { if (this.wrongTimer) { clearTimeout(this.wrongTimer); this.wrongTimer = null; } }
   cancelCorrectTimer() { if (this.correctTimer) { clearTimeout(this.correctTimer); this.correctTimer = null; } }
+  cancelBuzzWindowTimer() { if (this.buzzWindowTimer) { clearTimeout(this.buzzWindowTimer); this.buzzWindowTimer = null; } this.buzzWindowOpen = false; }
   cancelAllTimers() {
     this.cancelCpuTimer();
     this.cancelCpuLetterTimer();
@@ -140,6 +151,53 @@ class Room {
     this.cancelAdvanceTimer();
     this.cancelWrongTimer();
     this.cancelCorrectTimer();
+    this.cancelBuzzWindowTimer();
+  }
+
+  // 早押しに成功した人の処理の共通部分（人間・CPUどちらの早押しからも呼ぶ）。
+  // 同時グループ(buzzQueue)をこの人だけでリセットし、SIMULTANEOUS_BUZZ_WINDOW_MSの間
+  // 他の人の早押しも同じグループに追加登録できるようにする。
+  startBuzzedPhase(buzzerId) {
+    const reactionMs = this.questionOpenedAt !== null ? Date.now() - this.questionOpenedAt : null;
+    this.buzzQueue = [{ id: buzzerId, reactionMs }];
+    this.buzzQueueIndex = 0;
+    this.openBuzzWindow();
+    this.buzzedId = buzzerId;
+    this.lastBuzzerId = buzzerId;
+    this.lastBuzzerReactionMs = reactionMs;
+    this.resolvedCount = 0;
+    this.isFirstLetterPick = true;
+    this.phase = 'buzzed';
+  }
+
+  openBuzzWindow() {
+    this.cancelBuzzWindowTimer();
+    this.buzzWindowOpen = true;
+    this.buzzWindowTimer = setTimeout(() => {
+      this.buzzWindowTimer = null;
+      this.buzzWindowOpen = false;
+    }, SIMULTANEOUS_BUZZ_WINDOW_MS);
+  }
+
+  // 同時グループの中に、まだ解答していない次の人がいればその人へ解答権を渡す。
+  // 見つかった場合はtrueを返す（呼び出し元は「全員で自由に押し直す」openに戻す処理をしない）。
+  // 自分の番が来る前に切断してしまった人はスキップして、さらに次の人を探す。
+  promoteNextInQueue() {
+    while (this.buzzQueueIndex + 1 < this.buzzQueue.length) {
+      this.buzzQueueIndex++;
+      const next = this.buzzQueue[this.buzzQueueIndex];
+      const p = this.players.get(next.id);
+      if (!p || !p.connected) continue;
+      this.buzzedId = next.id;
+      this.lastBuzzerId = next.id;
+      this.lastBuzzerReactionMs = next.reactionMs;
+      this.resolvedCount = 0;
+      this.isFirstLetterPick = true;
+      this.phase = 'buzzed';
+      this.advanceLetterOrFinish();
+      return true;
+    }
+    return false;
   }
 
   publicPlayers() {
@@ -180,6 +238,9 @@ class Room {
       buzzedName: this.buzzedId ? this.players.get(this.buzzedId)?.name : null,
       lastBuzzerId: this.lastBuzzerId,
       lastBuzzerReactionMs: this.lastBuzzerReactionMs,
+      // ほぼ同時に押した人たち全員の反応時間（{id, reactionMs}の配列）。本人を含む。
+      // 誰か1人が誤答しても、グループの解答が全員分終わる（または通常のopenに戻る）まで保持する。
+      buzzQueue: this.buzzQueue,
       isFirstLetterChoice: this.isFirstLetterPick,
       players: this.publicPlayers(),
     };
@@ -321,11 +382,6 @@ class Room {
 
       this.cancelNoBuzzTimer();
       this.pauseQuestionTyping();
-      this.buzzedId = CPU_ID;
-      this.lastBuzzerId = CPU_ID;
-      this.lastBuzzerReactionMs = this.questionOpenedAt !== null ? Date.now() - this.questionOpenedAt : null;
-      this.resolvedCount = 0;
-      this.isFirstLetterPick = true;
       this.cpuStepIndex = 0;
       this.cpuWillSucceed = Math.random() < (CPU_ACCURACY[this.difficulty] ?? 0.5);
       // 間違えるときは必ず1文字目にする。1文字目だけは「もっともらしい別の答え」の頭文字が
@@ -333,7 +389,7 @@ class Room {
       // 2文字目以降はただの同種文字からのランダム選択肢なので、そこで間違えると
       // （文脈上ほぼ答えが確定しているのに間違える、という）不自然な間違え方になってしまう。
       this.cpuMistakeAt = this.cpuWillSucceed ? -1 : 0;
-      this.phase = 'buzzed';
+      this.startBuzzedPhase(CPU_ID);
       this.advanceLetterOrFinish();
     }, reactionDelay);
   }
@@ -405,6 +461,8 @@ class Room {
     this.wrongTimedOut = false;
     if (this.allHumansDisqualified()) {
       this.enterGameOver();
+    } else if (this.promoteNextInQueue()) {
+      // 同時に押していたグループの次の人へ解答権が渡った（promoteNextInQueue内でbroadcastState済み）
     } else if (this.lockedOut.size >= this.connectedPlayerCount()) {
       this.enterReveal();
     } else {
@@ -472,6 +530,8 @@ class Room {
     this.wrongTimedOut = false;
     this.lastBuzzerId = null;
     this.lastBuzzerReactionMs = null;
+    this.buzzQueue = [];
+    this.buzzQueueIndex = 0;
     this.questionRevealedMs = 0;
     this.questionTypingStartedAt = null;
     this.questionOpenedAt = null;

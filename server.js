@@ -404,6 +404,8 @@ io.on('connection', (socket) => {
     room.wrongTimedOut = false;
     room.lastBuzzerId = null;
     room.lastBuzzerReactionMs = null;
+    room.buzzQueue = [];
+    room.buzzQueueIndex = 0;
     room.questionRevealedMs = 0;
     room.questionTypingStartedAt = null;
     room.questionOpenedAt = null;
@@ -419,20 +421,27 @@ io.on('connection', (socket) => {
   onLimited('player:buzz', () => {
     const room = getRoomForSocket(socket);
     if (!room) return;
-    if (!room.started || room.paused || room.phase !== 'open') return;
+    if (!room.started || room.paused) return;
     const clientId = socket.data.clientId;
     if (!clientId || !room.players.has(clientId)) return;
     if (room.lockedOut.has(clientId) || room.disqualified.has(clientId)) return;
-    room.cancelCpuTimer();
-    room.cancelNoBuzzTimer();
-    room.pauseQuestionTyping();
-    room.buzzedId = clientId;
-    room.lastBuzzerId = clientId;
-    room.lastBuzzerReactionMs = room.questionOpenedAt !== null ? Date.now() - room.questionOpenedAt : null;
-    room.resolvedCount = 0;
-    room.isFirstLetterPick = true;
-    room.phase = 'buzzed';
-    room.advanceLetterOrFinish();
+
+    if (room.phase === 'open') {
+      // 1人目の早押し。今まで通りすぐ解答を開始する。
+      room.cancelCpuTimer();
+      room.cancelNoBuzzTimer();
+      room.pauseQuestionTyping();
+      room.startBuzzedPhase(clientId);
+      room.advanceLetterOrFinish();
+    } else if (room.buzzWindowOpen && (room.phase === 'buzzed' || room.phase === 'wrong')) {
+      // SIMULTANEOUS_BUZZ_WINDOW_MS以内の「ほぼ同時」の早押し。解答権は変えず、
+      // 同時グループ(buzzQueue)に記録だけしておく（1人目が誤答したら順に解答権が渡る）。
+      if (!room.buzzQueue.some((b) => b.id === clientId)) {
+        const reactionMs = room.questionOpenedAt !== null ? Date.now() - room.questionOpenedAt : null;
+        room.buzzQueue.push({ id: clientId, reactionMs });
+        room.broadcastState();
+      }
+    }
   });
 
   onLimited('player:answer', (payload) => {

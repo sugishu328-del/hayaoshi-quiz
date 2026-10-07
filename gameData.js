@@ -143,6 +143,7 @@ const ANNOUNCE_DELAY_MS = 1500; // 「第N問」だけを表示しておく時�
 const WRONG_ANSWER_DELAY_MS = 1500; // 文字を選んで誤答したときに「✕不正解」を表示しておく時間
 const POST_CORRECT_REVEAL_DELAY_MS = 2000; // 「○正解」の後、残りの問題文＋A.答えを表示しておく時間
 const CORRECT_ANSWER_DELAY_MS = 1500; // 正解し終わったときに「○正解」を表示しておく時間
+const SIMULTANEOUS_BUZZ_WINDOW_MS = 300; // 最初の早押しからこの時間以内の早押しは「同時」とみなし、同じ解答権キューに加える（2026-10-08追加）
 
 module.exports = {
   DIFFICULTIES,
@@ -166,4 +167,5 @@ module.exports = {
   WRONG_ANSWER_DELAY_MS,
   POST_CORRECT_REVEAL_DELAY_MS,
   CORRECT_ANSWER_DELAY_MS,
+  SIMULTANEOUS_BUZZ_WINDOW_MS,
 };
