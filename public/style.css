@@ -710,7 +710,11 @@ input:disabled {
 
 .player-list {
   list-style: none;
-  padding: 0;
+  /* overflow-x: auto を指定すると、overflow-y が未指定でも仕様上 auto 扱いになり、
+     上に負のoffsetで飛び出す残り誤答回数バッジ(.player-wrong-remaining、top:-6px)の
+     上側が見えなくなってしまう。padding-topでバッジの飛び出し分の余白を確保して防ぐ
+     （2026-10-08修正）。 */
+  padding: 8px 0 0;
   margin: 0;
   width: 100%;
   display: flex;

@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node server.js*)",
+      "Bash(node -c *)",
+      "Bash(node -e *)",
+      "Bash(npm install*)",
+      "Bash(npm uninstall*)",
+      "Bash(npm run validate-questions*)",
+      "Bash(npm audit*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(netstat*)",
+      "Bash(powershell -Command \"Get-Process node*)",
+      "Bash(rm -f _test_**)",
+      "Bash(rm -f _shot_**)",
+      "Bash(rm -f _check_**)",
+      "Bash(rm -f _cleanup_**)"
+    ],
+    "deny": [
+      "Bash(rm -rf*)",
+      "Bash(git reset --hard*)",
+      "Bash(git checkout -- *)",
+      "Bash(git clean*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)"
+    ]
+  }
+}
