@@ -178,11 +178,11 @@
 <div id="game-screen" class="screen game-screen hidden">
   <div id="top-bar" class="top-bar">
     <button id="back-to-mode-btn" class="back-btn">← モード選択</button>
+    <button id="end-game-btn" class="back-btn hidden">終了</button>
     <span id="question-number-badge" class="question-number-badge hidden"></span>
     <div id="top-bar-right" class="top-bar-right">
       <button id="rule-check-btn" class="rule-check-btn hidden">📋 ルール</button>
       <button id="pause-btn" class="rule-check-btn hidden" title="一時停止" aria-label="一時停止">⏸</button>
-      <button id="end-game-btn" class="hidden">終了</button>
     </div>
   </div>
 
@@ -318,7 +318,8 @@
   <div id="game-over-overlay" class="buzz-overlay hidden">
     <div class="buzz-card game-over-card">
       <p class="game-over-title">ゲーム終了！</p>
-      <ul id="game-over-ranking" class="game-over-ranking"></ul>
+      <div id="game-over-podium" class="game-over-podium"></div>
+      <ul id="game-over-rest" class="game-over-ranking"></ul>
       <button id="game-over-close-btn" class="end-confirm-ok">閉じる</button>
     </div>
   </div>

@@ -849,29 +849,87 @@ endConfirmOkBtn.addEventListener('click', () => {
 
 // 先取点数・出題数上限に到達すると自動的にこの画面になる（確認なしでそのまま終了してよい）。
 const gameOverOverlay = document.getElementById('game-over-overlay');
-const gameOverRanking = document.getElementById('game-over-ranking');
+const gameOverPodium = document.getElementById('game-over-podium');
+const gameOverRest = document.getElementById('game-over-rest');
 const gameOverCloseBtn = document.getElementById('game-over-close-btn');
 
 gameOverCloseBtn.addEventListener('click', () => {
   socket.emit('game:end');
 });
 
+// 表彰台の見た目。台の高さ・メダル・並び順(左から2位・1位・3位)は固定で、
+// 実際に存在する人数分だけ描画する(1〜2人の少人数対戦でも台が欠けるだけで成立する)。
+const PODIUM_RANKS = [
+  { rank: 1, medal: '🥇', heightClass: 'podium-h1' },
+  { rank: 2, medal: '🥈', heightClass: 'podium-h2' },
+  { rank: 3, medal: '🥉', heightClass: 'podium-h3' },
+];
+const PODIUM_ORDER = [1, 0, 2]; // 表示順: 2位・1位・3位（中央が一番高い1位）
+
+function buildPodiumSlot(player, rankInfo) {
+  const slot = document.createElement('div');
+  slot.className = 'podium-slot';
+
+  const isBlocked = blockedPlayers.has(player.id);
+  const displayName = isBlocked ? 'ブロック済みユーザー' : player.name;
+
+  const avatarWrap = document.createElement('div');
+  avatarWrap.className = 'podium-avatar-wrap';
+  const avatar = document.createElement('span');
+  avatar.className = 'player-avatar podium-avatar';
+  setAvatarContent(avatar, displayName, isBlocked ? null : player.icon);
+  const medal = document.createElement('span');
+  medal.className = 'podium-medal';
+  medal.textContent = rankInfo.medal;
+  avatarWrap.appendChild(avatar);
+  avatarWrap.appendChild(medal);
+
+  const name = document.createElement('p');
+  name.className = 'podium-name';
+  name.textContent = displayName;
+
+  const score = document.createElement('p');
+  score.className = 'podium-score';
+  score.textContent = `${player.score}点`;
+
+  const block = document.createElement('div');
+  block.className = `podium-block ${rankInfo.heightClass}`;
+  block.textContent = String(rankInfo.rank);
+
+  slot.appendChild(avatarWrap);
+  slot.appendChild(name);
+  slot.appendChild(score);
+  slot.appendChild(block);
+  return slot;
+}
+
 function renderGameOverRanking(players) {
-  gameOverRanking.innerHTML = '';
+  gameOverPodium.innerHTML = '';
+  gameOverRest.innerHTML = '';
   const sorted = players.slice().sort((a, b) => b.score - a.score);
-  const topScore = sorted.length > 0 ? sorted[0].score : 0;
-  sorted.forEach((p) => {
+
+  const top3 = sorted.slice(0, 3);
+  PODIUM_ORDER.forEach((i) => {
+    if (!top3[i]) return; // 人数が足りない順位の台は作らない
+    gameOverPodium.appendChild(buildPodiumSlot(top3[i], PODIUM_RANKS[i]));
+  });
+
+  sorted.slice(3).forEach((p, i) => {
     const li = document.createElement('li');
-    if (p.score === topScore && topScore > 0) li.classList.add('winner');
+    const isBlocked = blockedPlayers.has(p.id);
+    const rank = document.createElement('span');
+    rank.className = 'game-over-rank';
+    rank.textContent = `${i + 4}位`;
     const name = document.createElement('span');
     name.className = 'game-over-name';
-    name.textContent = p.name;
+    name.textContent = isBlocked ? 'ブロック済みユーザー' : p.name;
     const score = document.createElement('span');
     score.className = 'game-over-score';
     score.textContent = `${p.score}点`;
+    li.appendChild(rank);
     li.appendChild(name);
     li.appendChild(score);
-    gameOverRanking.appendChild(li);
+    gameOverRest.appendChild(li);
   });
 }
 
@@ -1412,6 +1470,9 @@ socket.on('state', (state) => {
   setupPanel.classList.toggle('hidden', started);
   playPanel.classList.toggle('hidden', !started);
   questionNumberBadge.classList.toggle('hidden', !started);
+  // プレイ中は左上を「モード選択」から「終了」に差し替える（誤って部屋を抜けてしまうのを防ぐ。
+  // 部屋を出たい場合は終了→セットアップ画面に戻ってからモード選択を使う）。
+  backToModeBtn.classList.toggle('hidden', started);
   endGameBtn.classList.toggle('hidden', !started);
   ruleCheckBtn.classList.toggle('hidden', !started);
   pauseBtn.classList.toggle('hidden', !started || paused);

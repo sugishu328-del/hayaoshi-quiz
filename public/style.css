@@ -42,6 +42,10 @@
 
   --color-gold: #ffb020;
   --color-gold-light: #fff6e0;
+  --color-silver: #9aa3b5;
+  --color-silver-light: #eef0f4;
+  --color-bronze: #c97b3d;
+  --color-bronze-light: #fbead9;
 
   /* アイコン未設定時のプレースホルダー（LINE等の「画像未設定」に寄せたグレー系、
      他画面のブランドカラーとは独立させている） */
@@ -1422,6 +1426,90 @@ input:disabled {
   color: var(--color-primary-dark);
 }
 
+/* 表彰台（上位3位まで）。実際の人数が3人未満なら足りない台は作らない
+   （PODIUM_ORDERで中央=1位、左=2位、右=3位の順に並べる）。 */
+.game-over-podium {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+}
+
+.podium-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.podium-avatar-wrap {
+  position: relative;
+}
+
+.podium-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 1.3rem;
+}
+
+.podium-medal {
+  position: absolute;
+  bottom: -4px;
+  right: -6px;
+  font-size: 1.1rem;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
+.podium-name {
+  margin: 2px 0 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.podium-score {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: var(--color-text-muted);
+}
+
+.podium-block {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 6px;
+  border-radius: 8px 8px 0 0;
+  font-weight: 900;
+  font-size: 1.3rem;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.podium-h1 {
+  height: 92px;
+  background: linear-gradient(180deg, var(--color-gold) 0%, #e0941a 100%);
+}
+
+.podium-h2 {
+  height: 66px;
+  background: linear-gradient(180deg, var(--color-silver) 0%, #7e8699 100%);
+}
+
+.podium-h3 {
+  height: 48px;
+  background: linear-gradient(180deg, var(--color-bronze) 0%, #a86128 100%);
+}
+
 .game-over-ranking {
   width: 100%;
   list-style: none;
@@ -1429,8 +1517,8 @@ input:disabled {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 40vh;
+  gap: 6px;
+  max-height: 25vh;
   overflow-y: auto;
 }
 
@@ -1438,17 +1526,31 @@ input:disabled {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: 10px;
   background: var(--color-surface-alt);
   border: 2px solid var(--color-border);
   box-shadow: var(--shadow-raised-sm);
 }
 
-.game-over-ranking li.winner {
-  border-color: var(--color-gold);
-  background: var(--color-gold-light);
+.game-over-rank {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: var(--color-text-faint);
+}
+
+.game-over-ranking li .game-over-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-over-ranking li .game-over-score {
+  flex: 0 0 auto;
 }
 
 /* ---- 解答中にルールを見返すための確認ポップアップ（読み取り専用） ---- */
