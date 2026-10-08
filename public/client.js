@@ -857,18 +857,17 @@ gameOverCloseBtn.addEventListener('click', () => {
   socket.emit('game:end');
 });
 
-// 表彰台の見た目。台の高さ・メダル・並び順(左から2位・1位・3位)は固定で、
-// 実際に存在する人数分だけ描画する(1〜2人の少人数対戦でも台が欠けるだけで成立する)。
+// 表彰台の見た目。台の四角は使わず、アバター・文字の大きさだけで1位>2位>3位の
+// 序列を表す（左から1位・2位・3位の順。実際に存在する人数分だけ描画する）。
 const PODIUM_RANKS = [
-  { rank: 1, medal: '🥇', heightClass: 'podium-h1' },
-  { rank: 2, medal: '🥈', heightClass: 'podium-h2' },
-  { rank: 3, medal: '🥉', heightClass: 'podium-h3' },
+  { rank: 1, medal: '🥇', sizeClass: 'podium-rank1' },
+  { rank: 2, medal: '🥈', sizeClass: 'podium-rank2' },
+  { rank: 3, medal: '🥉', sizeClass: 'podium-rank3' },
 ];
-const PODIUM_ORDER = [1, 0, 2]; // 表示順: 2位・1位・3位（中央が一番高い1位）
 
 function buildPodiumSlot(player, rankInfo) {
   const slot = document.createElement('div');
-  slot.className = 'podium-slot';
+  slot.className = `podium-slot ${rankInfo.sizeClass}`;
 
   const isBlocked = blockedPlayers.has(player.id);
   const displayName = isBlocked ? 'ブロック済みユーザー' : player.name;
@@ -892,14 +891,9 @@ function buildPodiumSlot(player, rankInfo) {
   score.className = 'podium-score';
   score.textContent = `${player.score}点`;
 
-  const block = document.createElement('div');
-  block.className = `podium-block ${rankInfo.heightClass}`;
-  block.textContent = String(rankInfo.rank);
-
   slot.appendChild(avatarWrap);
   slot.appendChild(name);
   slot.appendChild(score);
-  slot.appendChild(block);
   return slot;
 }
 
@@ -909,9 +903,8 @@ function renderGameOverRanking(players) {
   const sorted = players.slice().sort((a, b) => b.score - a.score);
 
   const top3 = sorted.slice(0, 3);
-  PODIUM_ORDER.forEach((i) => {
-    if (!top3[i]) return; // 人数が足りない順位の台は作らない
-    gameOverPodium.appendChild(buildPodiumSlot(top3[i], PODIUM_RANKS[i]));
+  top3.forEach((p, i) => {
+    gameOverPodium.appendChild(buildPodiumSlot(p, PODIUM_RANKS[i]));
   });
 
   sorted.slice(3).forEach((p, i) => {

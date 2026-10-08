@@ -1426,20 +1426,20 @@ input:disabled {
   color: var(--color-primary-dark);
 }
 
-/* 表彰台（上位3位まで）。実際の人数が3人未満なら足りない台は作らない
-   （PODIUM_ORDERで中央=1位、左=2位、右=3位の順に並べる）。 */
+/* 表彰台（上位3位まで、左から1位・2位・3位）。台の四角は使わず、アバター・文字の
+   大きさとリングの色(金/銀/銅)だけで序列を表す。人数が3人未満なら足りない分は作らない。 */
 .game-over-podium {
   width: 100%;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .podium-slot {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 120px;
+  max-width: 130px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1451,16 +1451,14 @@ input:disabled {
 }
 
 .podium-avatar {
-  width: 44px;
-  height: 44px;
-  font-size: 1.3rem;
+  border: 3px solid var(--color-border);
+  font-weight: bold;
 }
 
 .podium-medal {
   position: absolute;
   bottom: -4px;
   right: -6px;
-  font-size: 1.1rem;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 }
 
@@ -1470,45 +1468,48 @@ input:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.75rem;
   font-weight: bold;
   color: var(--color-text);
 }
 
 .podium-score {
-  margin: 0 0 4px;
-  font-size: 0.75rem;
+  margin: 0;
   font-weight: bold;
   color: var(--color-text-muted);
 }
 
-.podium-block {
-  width: 100%;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 6px;
-  border-radius: 8px 8px 0 0;
-  font-weight: 900;
-  font-size: 1.3rem;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+/* 1位: 一番大きく表示する */
+.podium-rank1 .podium-avatar {
+  width: 76px;
+  height: 76px;
+  font-size: 2rem;
+  border-color: var(--color-gold);
 }
+.podium-rank1 .podium-medal { font-size: 1.5rem; }
+.podium-rank1 .podium-name { font-size: 1rem; }
+.podium-rank1 .podium-score { font-size: 0.9rem; }
 
-.podium-h1 {
-  height: 92px;
-  background: linear-gradient(180deg, var(--color-gold) 0%, #e0941a 100%);
+/* 2位: 1位より一回り小さく */
+.podium-rank2 .podium-avatar {
+  width: 58px;
+  height: 58px;
+  font-size: 1.5rem;
+  border-color: var(--color-silver);
 }
+.podium-rank2 .podium-medal { font-size: 1.2rem; }
+.podium-rank2 .podium-name { font-size: 0.82rem; }
+.podium-rank2 .podium-score { font-size: 0.75rem; }
 
-.podium-h2 {
-  height: 66px;
-  background: linear-gradient(180deg, var(--color-silver) 0%, #7e8699 100%);
+/* 3位: さらに一回り小さく */
+.podium-rank3 .podium-avatar {
+  width: 46px;
+  height: 46px;
+  font-size: 1.2rem;
+  border-color: var(--color-bronze);
 }
-
-.podium-h3 {
-  height: 48px;
-  background: linear-gradient(180deg, var(--color-bronze) 0%, #a86128 100%);
-}
+.podium-rank3 .podium-medal { font-size: 1rem; }
+.podium-rank3 .podium-name { font-size: 0.72rem; }
+.podium-rank3 .podium-score { font-size: 0.68rem; }
 
 .game-over-ranking {
   width: 100%;
