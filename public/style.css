@@ -1248,6 +1248,13 @@ input:disabled {
   gap: 10px;
 }
 
+/* 早押し中/正解/不正解のカードだけ、他の確認ポップアップ(.buzz-cardを使い回している
+   終了確認・ゲーム終了・ルール確認等)より少し小さくする。✕不正解／○正解の巨大な文字の
+   左右に不要な余白ができていたため、このカードに限ってmax-widthを狭める（2026-10-09）。 */
+#buzz-overlay .buzz-card {
+  max-width: 300px;
+}
+
 .buzz-live {
   display: flex;
   flex-direction: column;
