@@ -485,7 +485,12 @@ class Room {
     this.wrongLetterChoice = null;
     this.wrongTimedOut = false;
     if (this.allHumansDisqualified()) {
-      this.enterGameOver();
+      // 誤答で失格者が出て、もう誰も解答できなくなった場合もenterGameOver()をいきなり
+      // 呼ばず、まず他の「誰も正解できなかった」ケースと同じenterReveal()で正解を
+      // 見せる（drawAndOpenNextQuestion側のallHumansDisqualifiedチェックで、次の問題を
+      // 出す代わりにゲーム終了になる）。こうしないと、失格が確定した問題の答えが
+      // 一度も表示されないままゲームが終わってしまう（2026-10-09修正）。
+      this.enterReveal();
     } else if (this.promoteNextInQueue()) {
       // 同時に押していたグループの次の人へ解答権が渡った（promoteNextInQueue内でbroadcastState済み）
     } else if (this.lockedOut.size >= this.connectedPlayerCount()) {
@@ -527,10 +532,23 @@ class Room {
     this.phase = 'gameOver';
     this.buzzedId = null;
     this.letterChoices = [];
+    // proceedAfterWrong()が誤答直後の失格(allHumansDisqualified)でここへ直接来た場合、
+    // その問題はまだ一度も正解発表(reveal/correctReveal)を経ていない。displayAnswer/answerは
+    // まだ直前の問題のまま残っているので、ここで必ずrevealedAnswer/revealedInputにセットしておく
+    // （通常の「正解→correctReveal→drawAndOpenNextQuestionで上限到達」の経路では、この時点で
+    // 既に同じ値がセット済みなので無害な再代入になるだけ。2026-10-09、答えが表示されない不具合を修正）。
+    this.revealedAnswer = this.displayAnswer;
+    this.revealedInput = this.answer;
     this.broadcastState();
   }
 
   drawAndOpenNextQuestion() {
+    // 誤答による失格(enterReveal経由)で呼ばれた場合、もう誰も解答できないので
+    // 先取点数・出題数上限に関わらずここでゲーム終了にする（2026-10-09追加）。
+    if (this.allHumansDisqualified()) {
+      this.enterGameOver();
+      return;
+    }
     if (this.questionLimit > 0 && this.questionNumber >= this.questionLimit) {
       this.enterGameOver();
       return;

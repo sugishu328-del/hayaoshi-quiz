@@ -1508,6 +1508,27 @@ socket.on('state', (state) => {
   pauseResumeBtn.classList.toggle('hidden', !amHost);
   pauseHostNote.classList.toggle('hidden', amHost);
 
+  // 解答の進捗（確定した文字）は全員に見せる。選択肢のボタンは早押しに勝った本人にだけ表示する。
+  // 誤答した瞬間（wrong）・正解し終えた瞬間（correct）は、同じポップアップの中身を
+  // 「✕不正解」「○正解」表示に切り替える。
+  // 一時停止中は、通常の早押しポップアップ類は表示せず一時停止オーバーレイだけを見せる。
+  // これらの表示/非表示の切り替えは、下のgameOver/!startedの分岐より必ず前で行う。
+  // （誤答から即ゲーム終了になるケース等で、✕不正解オーバーレイを隠す処理が一度も
+  // 実行されないまま残ってしまい、ゲーム終了画面を閉じた後もルール設定画面の上に
+  // 「✕不正解」が貼りついたまま残ってしまう不具合があったため。2026-10-09修正）
+  const isSelfBuzzed = buzzedId === clientId;
+  const showProgress = phase === 'buzzed' && !paused;
+  const showWrong = phase === 'wrong' && !paused;
+  const showCorrect = phase === 'correct' && !paused;
+  const showChoices = phase === 'buzzed' && !paused && isSelfBuzzed && letterChoices && letterChoices.length > 0;
+  currentShowOverlayBase = showProgress || showWrong || showCorrect;
+  currentIsSelfBuzzed = isSelfBuzzed;
+  updateBuzzOverlayVisibility();
+  buzzLive.classList.toggle('hidden', !showProgress);
+  wrongResult.classList.toggle('hidden', !showWrong);
+  correctResult.classList.toggle('hidden', !showCorrect);
+  choicesContainer.classList.toggle('hidden', !showChoices);
+
   gameOverOverlay.classList.toggle('hidden', phase !== 'gameOver');
   if (phase === 'gameOver') {
     renderGameOverRanking(players);
@@ -1530,22 +1551,9 @@ socket.on('state', (state) => {
   updateQuestionReveal(questionTextEl, question, phase);
 
   const me = players.find((p) => p.id === clientId);
-  const isSelfBuzzed = buzzedId === clientId;
 
-  // 解答の進捗（確定した文字）は全員に見せる。選択肢のボタンは早押しに勝った本人にだけ表示する。
-  // 誤答した瞬間（wrong）・正解し終えた瞬間（correct）は、同じポップアップの中身を
-  // 「✕不正解」「○正解」表示に切り替える。
-  // 一時停止中は、通常の早押しポップアップ類は表示せず一時停止オーバーレイだけを見せる。
-  const showProgress = phase === 'buzzed' && !paused;
-  const showWrong = phase === 'wrong' && !paused;
-  const showCorrect = phase === 'correct' && !paused;
-  const showChoices = phase === 'buzzed' && !paused && isSelfBuzzed && letterChoices && letterChoices.length > 0;
-  currentShowOverlayBase = showProgress || showWrong || showCorrect;
-  currentIsSelfBuzzed = isSelfBuzzed;
-  updateBuzzOverlayVisibility();
-  buzzLive.classList.toggle('hidden', !showProgress);
-  wrongResult.classList.toggle('hidden', !showWrong);
-  correctResult.classList.toggle('hidden', !showCorrect);
+  // showProgress/showWrong/showCorrect/showChoicesの表示切り替え自体は上で既に行い済み。
+  // ここではその中身（誰が解答中か、何の文字で誤答したか等）だけを埋める。
   if (showProgress) {
     const buzzedPlayer = players.find((p) => p.id === buzzedId);
     setAvatarContent(buzzAvatar, buzzedName, buzzedPlayer && buzzedPlayer.icon);
@@ -1560,7 +1568,6 @@ socket.on('state', (state) => {
   answerProgressText.textContent = answerProgress || '';
   updateLetterCountdown(showProgress, (answerProgress || '').length, !!isFirstLetterChoice);
 
-  choicesContainer.classList.toggle('hidden', !showChoices);
   choiceButtons.forEach((btn, i) => {
     btn.textContent = letterChoices[i] || '';
     btn.disabled = false;
