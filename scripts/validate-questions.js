@@ -24,11 +24,24 @@ const BINARY_CHOICE_PATTERN = /のうちどちら/;
 // 「゛」だけの選択肢が出てしまう（2026-08-29に実際に発生した不具合）。
 const STRAY_COMBINING_MARK_PATTERN = /[゙゚゛゜ﾞﾟ]/;
 
+// inputは通常1つの文字列だが、「コリオリの力/コリオリ力」「にほん/にっぽん」のように
+// 本当に2通り以上の正式な読み・言い方が通用する答えの場合だけ、配列で複数の正解候補を
+// 持たせられる（gameData.jsのisValidQuestionEntryと同じ基準、2026-10-09追加）。
+function isValidInput(input) {
+  if (typeof input === 'string') return !!input;
+  if (Array.isArray(input)) return input.length > 0 && input.every((s) => typeof s === 'string' && !!s);
+  return false;
+}
+
+function normalizeInputCandidates(input) {
+  return Array.isArray(input) ? input : [input];
+}
+
 function isValidQuestionEntry(item) {
   if (!item || typeof item !== 'object') return false;
   if (typeof item.question !== 'string' || !item.question) return false;
   if (typeof item.answer !== 'string' || !item.answer) return false;
-  if (typeof item.input !== 'string' || !item.input) return false;
+  if (!isValidInput(item.input)) return false;
   if (!Array.isArray(item.distractors)) return false;
   return item.distractors.every(
     (d) => d && typeof d.name === 'string' && typeof d.input === 'string' && d.input
@@ -87,14 +100,15 @@ function main() {
         errors.push({ category: '二択形式の問題文', difficulty: d, index: i, detail: item.question });
       }
 
-      // 6. ダミー選択肢の読みが正解の読みと衝突していないか
+      // 6. ダミー選択肢の読みが正解の読み(のどれか)と衝突していないか
+      const inputCandidates = normalizeInputCandidates(item.input);
       item.distractors.forEach((dist, di) => {
-        if (dist.input === item.input) {
+        if (inputCandidates.includes(dist.input)) {
           errors.push({
             category: 'ダミー選択肢の読みが正解と衝突',
             difficulty: d,
             index: i,
-            detail: `distractors[${di}]="${dist.name}"(${dist.input}) / 正解="${item.answer}"(${item.input})`,
+            detail: `distractors[${di}]="${dist.name}"(${dist.input}) / 正解="${item.answer}"(${inputCandidates.join('/')})`,
           });
         }
       });
@@ -116,7 +130,7 @@ function main() {
       // 8. 濁点・半濁点が単独文字のまま残っていないか（answer/input/distractors全体）
       const combiningMarkFields = [
         ['answer', item.answer],
-        ['input', item.input],
+        ...inputCandidates.map((s, si) => [inputCandidates.length > 1 ? `input[${si}]` : 'input', s]),
         ...item.distractors.flatMap((dist, di) => [
           [`distractors[${di}].name`, dist.name],
           [`distractors[${di}].input`, dist.input],
@@ -132,6 +146,27 @@ function main() {
           });
         }
       });
+
+      // 9b. inputが配列(複数の正式な読み)の場合、room.jsの分岐判定が成立する形になっているか。
+      // 候補同士が完全に同じ/一方が他方の接頭辞になっている（例:"にほん"と"にほんこく"）と、
+      // 短い方に到達した時点で早押し側が「全候補一致」と誤判定して正解確定してしまう。
+      if (inputCandidates.length > 1) {
+        for (let a = 0; a < inputCandidates.length; a++) {
+          for (let b = a + 1; b < inputCandidates.length; b++) {
+            const [shorter, longer] = inputCandidates[a].length <= inputCandidates[b].length
+              ? [inputCandidates[a], inputCandidates[b]]
+              : [inputCandidates[b], inputCandidates[a]];
+            if (longer.startsWith(shorter)) {
+              errors.push({
+                category: 'input配列の候補同士が同一または接頭辞の関係になっている',
+                difficulty: d,
+                index: i,
+                detail: `input=[${inputCandidates.join(', ')}] ("${shorter}"が"${longer}"の接頭辞)`,
+              });
+            }
+          }
+        }
+      }
 
       // 9. 問題文の完全重複（難易度をまたいでバンク全体でチェック）
       if (questionTextSeen.has(item.question)) {

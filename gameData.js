@@ -11,11 +11,25 @@ let questionBanks = { A: [], B: [], C: [] };
 // のような例外は socket.io のイベントハンドラ内では捕捉されない）。今後この問題バンクが
 // 手編集で壊れても落ちないよう、読み込み時に1問ずつ形を検証し、壊れている問題だけを
 // 読み飛ばす（他の問題は影響を受けない）。
+// inputは通常1つの文字列だが、「コリオリの力/コリオリ力」「にほん/にっぽん」のように
+// 本当に2通り以上の正式な読み・言い方が通用する答えの場合だけ、配列で複数の正解候補を
+// 持たせられる（2026-10-09追加）。配列化した場合も各要素は通常のinput同様1文字ずつ
+// 判定される（room.jsのanswerCandidatesが分岐して両方受理する）。
+function isValidInput(input) {
+  if (typeof input === 'string') return !!input;
+  if (Array.isArray(input)) return input.length > 0 && input.every((s) => typeof s === 'string' && !!s);
+  return false;
+}
+
+function normalizeInputCandidates(input) {
+  return Array.isArray(input) ? input : [input];
+}
+
 function isValidQuestionEntry(item) {
   if (!item || typeof item !== 'object') return false;
   if (typeof item.question !== 'string' || !item.question) return false;
   if (typeof item.answer !== 'string' || !item.answer) return false;
-  if (typeof item.input !== 'string' || !item.input) return false;
+  if (!isValidInput(item.input)) return false;
   if (!Array.isArray(item.distractors)) return false;
   return item.distractors.every(
     (d) => d && typeof d.name === 'string' && typeof d.input === 'string' && d.input
@@ -75,7 +89,7 @@ function buildCharPools() {
   const seen = { digit: new Set(), latin: new Set(), hiragana: new Set(), katakana: new Set(), kanji: new Set() };
   for (const d of DIFFICULTIES) {
     for (const item of questionBanks[d]) {
-      const strings = [item.input, ...(item.distractors || []).map((dd) => dd.input)];
+      const strings = [...normalizeInputCandidates(item.input), ...(item.distractors || []).map((dd) => dd.input)];
       for (const s of strings) {
         if (typeof s !== 'string') continue;
         for (const ch of s) {
@@ -93,29 +107,36 @@ function buildCharPools() {
 }
 buildCharPools();
 
+// correctCharは通常1文字だが、answerCandidatesが分岐している位置（例:「にほん」の
+// 「ほ」と「にっぽん」の「っ」）では、room.js側からその位置で正解になる複数文字を
+// 配列で渡してくる。単一文字のときは配列化してそのまま扱う（動作は変えない）。
 function buildLetterChoices(correctChar) {
-  const cls = classifyChar(correctChar);
-  const pool = charPools[cls].filter((c) => c !== correctChar);
+  const correctChars = Array.isArray(correctChar) ? correctChar : [correctChar];
+  const cls = classifyChar(correctChars[0]);
+  const pool = charPools[cls].filter((c) => !correctChars.includes(c));
   const shuffledPool = shuffleArray(pool);
   const decoys = [];
+  const decoyTarget = Math.max(0, 4 - correctChars.length);
   for (const c of shuffledPool) {
-    if (decoys.length >= 3) break;
+    if (decoys.length >= decoyTarget) break;
     if (!decoys.includes(c)) decoys.push(c);
   }
-  return shuffleArray([correctChar, ...decoys]);
+  return shuffleArray([...correctChars, ...decoys]);
 }
 
 // 1文字目だけは、ランダムな同種文字ではなく「もっともらしい誤答（distractors）」の
 // 頭文字を選択肢にする。distractorsが足りない/重複する分は通常のプールで補う。
+// correctCharも上記buildLetterChoicesと同様、分岐位置では配列で渡される。
 function buildFirstLetterChoices(correctChar, distractors) {
-  const candidates = [correctChar];
+  const correctChars = Array.isArray(correctChar) ? correctChar : [correctChar];
+  const candidates = [...correctChars];
   for (const d of distractors || []) {
     if (candidates.length >= 4) break;
     const firstChar = d && typeof d.input === 'string' ? d.input[0] : null;
     if (firstChar && !candidates.includes(firstChar)) candidates.push(firstChar);
   }
   if (candidates.length < 4) {
-    const cls = classifyChar(correctChar);
+    const cls = classifyChar(correctChars[0]);
     const pool = shuffleArray(charPools[cls].filter((c) => !candidates.includes(c)));
     for (const c of pool) {
       if (candidates.length >= 4) break;
@@ -153,6 +174,7 @@ module.exports = {
   DIFFICULTIES,
   questionBanks,
   SKIP_CHARS,
+  normalizeInputCandidates,
   shuffleArray,
   buildLetterChoices,
   buildFirstLetterChoices,

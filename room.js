@@ -1,6 +1,7 @@
 const {
   questionBanks,
   SKIP_CHARS,
+  normalizeInputCandidates,
   buildLetterChoices,
   buildFirstLetterChoices,
   CPU_ID,
@@ -47,7 +48,12 @@ class Room {
     this.phase = 'open'; // announce | open | buzzed | wrong | correct | reveal（started=falseの間は未使用）
     this.question = '';
     this.questionNumber = 0; // 何問目か（game:startで1から始まる）
-    this.answer = ''; // 実際に1文字ずつ入力させて正誤判定する文字列（questions.jsonのinput。漢字の読みや短縮形）
+    this.answer = ''; // 実際に1文字ずつ入力させて正誤判定する文字列（questions.jsonのinput。漢字の読みや短縮形）。
+    // answerCandidatesのうち現在もまだ正解の可能性がある候補の先頭（代表値）。answerProgress等の
+    // 表示用スライスはこれを使う（候補が複数残っている間も共通の先頭部分は一致している前提）
+    this.answerCandidatesFull = ['']; // questions.jsonのinputを配列化したもの（「コリオリ/にほん」のように複数の正式な読みがある場合は複数要素。通常は1要素）。1問の間は変わらない
+    this.answerCandidates = ['']; // 現在の解答者の入力位置(resolvedCount)までの文字が一致している、まだ正解になり得る候補の集合。1文字選ぶごとに絞り込まれ、分岐がなければ常に1個のまま
+    this.currentCorrectChars = []; // 現在の文字位置で正解になる文字の集合（answerCandidatesが分岐している位置では2文字以上になる。例:「にほん」の「ほ」と「にっぽん」の「っ」）
     this.displayAnswer = ''; // 「○正解」「A.答え」に表示する文字列（questions.jsonのanswer。漢字そのまま）
     this.currentDistractors = []; // 現在の問題のもっともらしい誤答（1文字目の選択肢作りに使う。{name, input}の配列）
     this.resolvedCount = 0; // answerの先頭から何文字確定したか（スキップ文字も含む）
@@ -166,6 +172,10 @@ class Room {
     this.lastBuzzerId = buzzerId;
     this.lastBuzzerReactionMs = reactionMs;
     this.resolvedCount = 0;
+    // 新しい解答者の番が始まるたび、answerCandidatesを分岐前の全候補に戻す
+    // （前の解答者が途中まで絞り込んだ状態を引き継がないようにする）
+    this.answerCandidates = this.answerCandidatesFull.slice();
+    this.answer = this.answerCandidates[0];
     this.isFirstLetterPick = true;
     this.phase = 'buzzed';
   }
@@ -192,6 +202,8 @@ class Room {
       this.lastBuzzerId = next.id;
       this.lastBuzzerReactionMs = next.reactionMs;
       this.resolvedCount = 0;
+      this.answerCandidates = this.answerCandidatesFull.slice();
+      this.answer = this.answerCandidates[0];
       this.isFirstLetterPick = true;
       this.phase = 'buzzed';
       this.advanceLetterOrFinish();
@@ -295,20 +307,29 @@ class Room {
 
   // 現在のresolvedCountから次に選ばせる文字を用意する。スキップ文字は自動で読み飛ばし、
   // 最後まで到達したら正解確定。CPUの番なら次の一手もスケジュールする。
+  // answerCandidatesが複数残っている間は「その位置で正解になり得る文字の集合」で判定する
+  // （「にほん/にっぽん」なら2文字目で'ほ'と'っ'の両方が正解になる）。候補がまだ1本に
+  // 絞られていない位置でも、全候補が同じ文字を指している間は通常通り1文字だけが正解になる。
   advanceLetterOrFinish() {
-    while (this.resolvedCount < this.answer.length && SKIP_CHARS.has(this.answer[this.resolvedCount])) {
-      this.resolvedCount++;
+    while (true) {
+      if (this.answerCandidates.length === 1 && this.resolvedCount >= this.answerCandidates[0].length) {
+        this.finishCorrectAnswer();
+        return;
+      }
+      const charsAtPos = new Set(this.answerCandidates.map((c) => c[this.resolvedCount]));
+      if (charsAtPos.size === 1 && SKIP_CHARS.has([...charsAtPos][0])) {
+        this.resolvedCount++;
+        continue;
+      }
+      break;
     }
-    if (this.resolvedCount >= this.answer.length) {
-      this.finishCorrectAnswer();
-      return;
-    }
+    this.currentCorrectChars = [...new Set(this.answerCandidates.map((c) => c[this.resolvedCount]))];
     // 「1文字目かどうか」はresolvedCount===0ではなくisFirstLetterPickで判定する。
     // （もしanswerの先頭がSKIP_CHARSの文字だった場合、上のwhileループでresolvedCountが
     // 0より先に進んでしまうため、resolvedCount===0では本当の1文字目を正しく検出できない）
     this.letterChoices = this.isFirstLetterPick
-      ? buildFirstLetterChoices(this.answer[this.resolvedCount], this.currentDistractors)
-      : buildLetterChoices(this.answer[this.resolvedCount]);
+      ? buildFirstLetterChoices(this.currentCorrectChars, this.currentDistractors)
+      : buildLetterChoices(this.currentCorrectChars);
     this.broadcastState();
     this.scheduleLetterTimeout(this.isFirstLetterPick ? FIRST_LETTER_TIMEOUT_MS : LETTER_TIMEOUT_MS);
     this.isFirstLetterPick = false;
@@ -359,8 +380,12 @@ class Room {
 
   resolveLetterChoice(choice) {
     this.cancelLetterTimer();
-    const correctChar = this.answer[this.resolvedCount];
-    if (choice === correctChar) {
+    const correctChars = this.currentCorrectChars.length ? this.currentCorrectChars : [this.answer[this.resolvedCount]];
+    if (correctChars.includes(choice)) {
+      // 分岐している位置なら、選んだ文字と食い違う候補をここで切り落とす
+      // （「にほん/にっぽん」で'っ'を選んだら「にほん」側はこの時点で候補から外れる）
+      this.answerCandidates = this.answerCandidates.filter((c) => c[this.resolvedCount] === choice);
+      this.answer = this.answerCandidates[0];
       this.resolvedCount++;
       this.advanceLetterOrFinish();
     } else {
@@ -518,7 +543,9 @@ class Room {
     const picked = this.drawNextQuestion(this.difficulty);
     this.question = picked ? picked.question : '';
     this.questionNumber++;
-    this.answer = picked ? picked.input : '';
+    this.answerCandidatesFull = picked ? normalizeInputCandidates(picked.input) : [''];
+    this.answerCandidates = this.answerCandidatesFull.slice();
+    this.answer = this.answerCandidates[0];
     this.displayAnswer = picked ? picked.answer : '';
     this.currentDistractors = picked && Array.isArray(picked.distractors) ? picked.distractors : [];
     this.resolvedCount = 0;
